@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 
 class SLAMetric(BaseModel):
     id: int
@@ -11,7 +12,7 @@ class SLAMetric(BaseModel):
     compliance_mappings: Dict[str, Any]
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Updated name for 'orm_mode' in Pydantic v2
 
 class SLATemplate(BaseModel):
     id: int
@@ -21,7 +22,11 @@ class SLATemplate(BaseModel):
     service_type: str
     template_data: Dict[str, Any]
     is_public: bool
-    created_at: str
+    created_at: Any  # Accept any type (datetime or str) to avoid validation errors
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Updated name for 'orm_mode' in Pydantic v2
+        json_encoders = {
+            # Custom encoder for datetime objects
+            datetime: lambda dt: dt.isoformat() if hasattr(dt, 'isoformat') else str(dt)
+        }

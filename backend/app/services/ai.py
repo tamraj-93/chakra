@@ -1,12 +1,32 @@
 from sqlalchemy.orm import Session
-import openai
 import os
+import logging
 from typing import Dict, Any, Optional
 
 from app.models import database as db_models
+from app.core.config import LLM_PROVIDER
+from .llm_provider import LLMProvider
+from .openai_provider import OpenAIProvider
+from .ollama_provider import OllamaProvider
 
-# Set OpenAI API Key from environment variable
-openai.api_key = os.environ.get("OPENAI_API_KEY", "your-default-key-here")
+# Set up logging
+logger = logging.getLogger(__name__)
+
+def get_llm_provider() -> LLMProvider:
+    """
+    Factory function to get the configured LLM provider.
+    
+    Returns:
+        LLMProvider: The configured LLM provider instance
+    """
+    provider_name = LLM_PROVIDER.lower() if LLM_PROVIDER else "openai"
+    
+    if provider_name == "ollama":
+        logger.info("Using Ollama LLM provider")
+        return OllamaProvider()
+    else:
+        logger.info("Using OpenAI LLM provider")
+        return OpenAIProvider()
 
 async def process_message(
     content: str,
@@ -91,16 +111,26 @@ async def process_message(
     }
 
 async def get_ai_response(messages: list) -> str:
-    """Get a response from the OpenAI API."""
+    """
+    Get a response from the configured LLM provider.
+    
+    Args:
+        messages: List of message dictionaries with 'role' and 'content' keys
+        
+    Returns:
+        Generated text response as a string
+    """
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",  # or other appropriate model
+        # Get the configured provider
+        provider = get_llm_provider()
+        
+        # Generate response using the provider
+        return await provider.generate_response(
             messages=messages,
             temperature=0.7,
             max_tokens=800
         )
-        return response.choices[0].message.content
     except Exception as e:
         # Log the error and return a friendly message
-        print(f"Error getting AI response: {e}")
+        logger.error(f"Error getting AI response: {e}")
         return "I'm having trouble processing your request. Please try again later."

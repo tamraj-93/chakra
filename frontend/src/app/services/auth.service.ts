@@ -14,8 +14,8 @@ interface User {
 }
 
 interface AuthResponse {
-  accessToken: string;
-  tokenType: string;
+  access_token: string;
+  token_type: string;
   user: User;
 }
 
@@ -38,9 +38,11 @@ export class AuthService {
    * Login user with email and password
    */
   login(email: string, password: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/auth/login`, { email, password })
+    return this.http.post<AuthResponse>(`${this.apiUrl}/api/auth/login`, { email, password })
       .pipe(
         tap(response => {
+          // Log the response to see what we're getting
+          console.log('Login response:', response);
           this.storeUserData(response);
         })
       );
@@ -50,7 +52,7 @@ export class AuthService {
    * Register a new user
    */
   register(email: string, password: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${this.apiUrl}/auth/register`, { email, password })
+    return this.http.post<AuthResponse>(`${this.apiUrl}/api/auth/register`, { email, password })
       .pipe(
         tap(response => {
           this.storeUserData(response);
@@ -78,7 +80,7 @@ export class AuthService {
    * Check if user is logged in
    */
   isLoggedIn(): boolean {
-    return !!this.currentUser;
+    return !!localStorage.getItem('token');
   }
 
   /**
@@ -92,7 +94,7 @@ export class AuthService {
    * Store user data in local storage
    */
   private storeUserData(response: AuthResponse): void {
-    localStorage.setItem('token', response.accessToken);
+    localStorage.setItem('token', response.access_token);
     localStorage.setItem('user', JSON.stringify(response.user));
     this.currentUser = response.user;
   }

@@ -25,7 +25,7 @@ interface ConsultationSession {
   providedIn: 'root'
 })
 export class ConsultationService {
-  private apiUrl = `${environment.apiUrl}/consultation`;
+  private apiUrl = `${environment.apiUrl}/api/consultation`;
 
   constructor(private http: HttpClient) { }
 

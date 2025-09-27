@@ -4,8 +4,13 @@ pydantic==2.4.2
 python-jose==3.3.0
 passlib==1.7.4
 python-multipart==0.0.6
+python-dotenv==1.0.0
 # Using SQLite for simplicity in the demo
 sqlalchemy==2.0.21
 openai==0.28.1
 anthropic==0.5.0
 alembic==1.12.0
+bcrypt==4.0.1
+# Added for local LLM integration
+httpx==0.25.0
+retry==0.9.2

@@ -3,6 +3,7 @@ import { BrowserModule } from '@angular/platform-browser';
 import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
@@ -18,6 +19,7 @@ import { TemplateGeneratorComponent } from './pages/template-generator/template-
 // Components
 import { ChatBoxComponent } from './components/chat-box/chat-box.component';
 import { NavbarComponent } from './components/navbar/navbar.component';
+import { DashboardComponent } from './components/dashboard/dashboard.component';
 
 @NgModule({
   declarations: [
@@ -28,10 +30,12 @@ import { NavbarComponent } from './components/navbar/navbar.component';
     ConsultationComponent,
     TemplateGeneratorComponent,
     ChatBoxComponent,
-    NavbarComponent
+    NavbarComponent,
+    DashboardComponent
   ],
   imports: [
     BrowserModule,
+    BrowserAnimationsModule,
     AppRoutingModule,
     HttpClientModule,
     FormsModule,
@@ -44,3 +48,8 @@ import { NavbarComponent } from './components/navbar/navbar.component';
   bootstrap: [AppComponent]
 })
 export class AppModule { }
+
+// TODO: Ensure animations are properly configured in Angular app
+// - Make sure BrowserAnimationsModule is imported in app.module.ts
+// - Use animation triggers in components with [@animationName]
+// - Apply route animations with animation definitions in router outlet

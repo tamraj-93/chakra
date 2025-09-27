@@ -23,6 +23,9 @@ import { AuthService } from '../../services/auth.service';
             <li class="nav-item" *ngIf="isLoggedIn">
               <a class="nav-link" routerLink="/template-generator" routerLinkActive="active">Template Generator</a>
             </li>
+            <li class="nav-item" *ngIf="isLoggedIn">
+              <a class="nav-link" routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+            </li>
           </ul>
           <ul class="navbar-nav">
             <li class="nav-item" *ngIf="!isLoggedIn">

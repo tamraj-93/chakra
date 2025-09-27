@@ -1,0 +1,125 @@
+{
+  "sla_template": {
+    "title": "Healthcare Cloud Application SLA",
+    "version": "1.0",
+    "industry": "Healthcare",
+    "application_type": "Cloud Service",
+    "metrics": [
+      {
+        "name": "Service Availability",
+        "category": "availability",
+        "tiers": [
+          {
+            "name": "Standard",
+            "target": "99.9%",
+            "measurement_period": "Monthly",
+            "credit_thresholds": [
+              {"threshold": "< 99.9% but ≥ 99.5%", "credit": "10%"},
+              {"threshold": "< 99.5% but ≥ 99.0%", "credit": "15%"},
+              {"threshold": "< 99.0% but ≥ 98.0%", "credit": "25%"},
+              {"threshold": "< 98.0%", "credit": "35%"}
+            ]
+          },
+          {
+            "name": "Premium",
+            "target": "99.95%",
+            "measurement_period": "Monthly"
+          },
+          {
+            "name": "Enterprise",
+            "target": "99.99%",
+            "measurement_period": "Monthly"
+          }
+        ],
+        "calculation_method": "(Total Minutes in Period - Downtime Minutes) / Total Minutes in Period × 100%",
+        "exclusions": [
+          "Scheduled maintenance (with 48-hour advance notice)",
+          "Force majeure events",
+          "Issues caused by Customer's infrastructure or connectivity"
+        ]
+      },
+      {
+        "name": "System Response Time",
+        "category": "performance",
+        "measurements": [
+          {"transaction": "Page Load", "target": "< 2 seconds"},
+          {"transaction": "Database Query", "target": "< 1 second"},
+          {"transaction": "Report Generation", "target": "< 5 seconds"},
+          {"transaction": "EHR Access", "target": "< 3 seconds"}
+        ],
+        "measurement_method": "Average response time measured at application level"
+      },
+      {
+        "name": "Data Security & Compliance",
+        "category": "security",
+        "requirements": [
+          {"name": "HIPAA/HITECH", "compliance": "100%"},
+          {"name": "Data Encryption", "compliance": "AES-256 for data at rest and in transit"},
+          {"name": "Access Controls", "compliance": "Role-based access with multi-factor authentication"},
+          {"name": "Audit Logging", "compliance": "Complete logging of all PHI access"}
+        ]
+      },
+      {
+        "name": "Support Response Times",
+        "category": "support",
+        "severity_levels": [
+          {
+            "level": "Critical",
+            "description": "Service unavailable; no workaround",
+            "response_time": "15 minutes",
+            "resolution_time": "2 hours"
+          },
+          {
+            "level": "High",
+            "description": "Major feature unavailable; workaround exists",
+            "response_time": "30 minutes",
+            "resolution_time": "4 hours"
+          },
+          {
+            "level": "Medium",
+            "description": "Non-critical feature issue",
+            "response_time": "2 hours",
+            "resolution_time": "8 hours"
+          },
+          {
+            "level": "Low",
+            "description": "Minor issue; no impact on operations",
+            "response_time": "8 hours",
+            "resolution_time": "48 hours"
+          }
+        ],
+        "credit_thresholds": [
+          {"threshold": "< 95% but ≥ 90%", "credit": "5%"},
+          {"threshold": "< 90% but ≥ 85%", "credit": "10%"},
+          {"threshold": "< 85%", "credit": "15%"}
+        ]
+      }
+    ],
+    "disaster_recovery": {
+      "rpo": "15 minutes",
+      "rto": "1 hour",
+      "backup_frequency": "Daily full backups with incremental backups every 15 minutes",
+      "retention_period": "7 years"
+    },
+    "maintenance": {
+      "standard_notification": "48 hours advance notice",
+      "emergency_notification": "As much notice as possible"
+    },
+    "service_hours": {
+      "core_hours": "Monday to Friday, 7:00 AM to 9:00 PM Eastern Time",
+      "extended_support": "Saturday to Sunday, 8:00 AM to 5:00 PM Eastern Time",
+      "emergency_support": "24/7/365 for critical issues"
+    },
+    "reporting": {
+      "frequency": "Monthly",
+      "delivery_time": "5th business day of the following month",
+      "contents": [
+        "Service availability statistics",
+        "Response time measurements",
+        "Support ticket summaries and resolution times",
+        "Security incident reports (if any)",
+        "Compliance status and audit results"
+      ]
+    }
+  }
+}

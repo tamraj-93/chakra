@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { ConsultationService } from '../../services/consultation.service';
 
 // Define the Message interface locally
@@ -41,22 +41,40 @@ export class ConsultationComponent implements OnInit {
   loading = false;
   sessionId?: number;
   
-  constructor(private consultationService: ConsultationService) {}
+  constructor(
+    private consultationService: ConsultationService,
+    private cdr: ChangeDetectorRef
+  ) {}
   
   ngOnInit(): void {
     // Add initial system message
-    this.messages.push({
+    this.messages = [{
       content: 'Hi! I\'m your SLA assistant. How can I help you today?',
-      role: 'assistant'
-    });
+      role: 'assistant' as 'assistant',
+      timestamp: new Date().toISOString()
+    }];
+    
+    console.log("Initial messages array:", this.messages);
+    this.cdr.detectChanges();
   }
   
   sendMessage(content: string): void {
+    if (!content || content.trim() === '') {
+      return;
+    }
+    
+    console.log("Sending message:", content);
+    
     // Add user message to chat
-    this.messages.push({
+    const userMessage = {
       content,
-      role: 'user'
-    });
+      role: 'user' as 'user',
+      timestamp: new Date().toISOString()
+    };
+    
+    this.messages = [...this.messages, userMessage];
+    console.log("Messages array after adding user message:", this.messages);
+    this.cdr.detectChanges();
     
     this.loading = true;
     
@@ -65,6 +83,7 @@ export class ConsultationComponent implements OnInit {
       .subscribe({
         next: (response: any) => {
           this.loading = false;
+          console.log('Consultation response:', response);
           
           // Save session ID if it's a new conversation
           if (response.session_id && !this.sessionId) {
@@ -72,20 +91,28 @@ export class ConsultationComponent implements OnInit {
           }
           
           // Add assistant response to chat
-          this.messages.push({
+          const assistantMessage = {
             content: response.message,
-            role: 'assistant'
-          });
+            role: 'assistant' as 'assistant',
+            timestamp: new Date().toISOString()
+          };
+          this.messages = [...this.messages, assistantMessage];
+          console.log("Messages array after adding assistant response:", this.messages);
+          this.cdr.detectChanges();
         },
         error: (error) => {
           this.loading = false;
           console.error('Error sending message:', error);
           
           // Add error message to chat
-          this.messages.push({
+          const errorMessage = {
             content: 'Sorry, there was an error processing your request. Please try again later.',
-            role: 'assistant'
-          });
+            role: 'assistant' as 'assistant',
+            timestamp: new Date().toISOString()
+          };
+          this.messages = [...this.messages, errorMessage];
+          console.log("Messages array after adding error message:", this.messages);
+          this.cdr.detectChanges();
         }
       });
   }

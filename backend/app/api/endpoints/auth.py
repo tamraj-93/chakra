@@ -9,13 +9,13 @@ from app.core.database import get_db
 from app.models import user as user_models
 from app.services import user as user_service
 
-# to get a string like this run:
-# openssl rand -hex 32
-SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+from app.core.config import JWT_SECRET_KEY, JWT_ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+# Use values from config
+SECRET_KEY = JWT_SECRET_KEY
+ALGORITHM = JWT_ALGORITHM
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 router = APIRouter(
     prefix="/auth",
@@ -78,6 +78,28 @@ async def login(form_data: user_models.UserLogin, db: Session = Depends(get_db))
         "token_type": "bearer",
         "user": user
     }
+
+@router.post("/token", response_model=user_models.Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = user_service.get_user_by_email(db, email=form_data.username)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user_service.verify_password(form_data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/register", response_model=user_models.AuthResponse)
 async def register(user_data: user_models.UserCreate, db: Session = Depends(get_db)):

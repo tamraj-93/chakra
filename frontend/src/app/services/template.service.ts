@@ -29,7 +29,7 @@ interface SLAMetric {
   providedIn: 'root'
 })
 export class TemplateService {
-  private apiUrl = `${environment.apiUrl}/templates`;
+  private apiUrl = `${environment.apiUrl}/api/templates`;
 
   constructor(private http: HttpClient) { }
 

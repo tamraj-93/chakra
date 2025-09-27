@@ -5,6 +5,7 @@ from typing import List
 from app.core.database import get_db
 from app.models import user as user_models
 from app.services import user as user_service
+from app.api.dependencies.auth import get_current_user
 
 router = APIRouter(
     prefix="/users",
@@ -20,7 +21,8 @@ def create_user(user: user_models.UserCreate, db: Session = Depends(get_db)):
     return user_service.create_user(db=db, user=user)
 
 @router.get("/me", response_model=user_models.User)
-def read_current_user(db: Session = Depends(get_db), current_user=None):  # Placeholder for auth
+def read_current_user(current_user = Depends(get_current_user)):
+    """Get the current authenticated user's profile"""
     return current_user
 
 @router.get("/{user_id}", response_model=user_models.User)

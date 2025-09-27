@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chakra Frontend Test - styling</title>
+  <link rel="stylesheet" href="frontend/src/styles.css">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      margin: 0;
+      padding: 20px;
+      color: #333;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    header {
+      background-color: #00897B;
+      color: white;
+      padding: 20px;
+      text-align: center;
+      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      margin: 0;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .test-section {
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      padding: 20px;
+      background-color: #f9f9f9;
+    }
+    .test-title {
+      font-size: 1.2em;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #00897B;
+    }
+    .test-description {
+      margin-bottom: 15px;
+    }
+    .test-content {
+      background-color: white;
+      padding: 15px;
+      border-radius: 5px;
+      border: 1px solid #eee;
+    }
+    .chat-message {
+      padding: 10px 15px;
+      margin: 5px 0;
+      border-radius: 10px;
+      max-width: 80%;
+    }
+    .user-message {
+      align-self: flex-end;
+      background-color: #E1F5FE;
+      color: #01579B;
+      margin-left: auto;
+      border: 1px solid #B3E5FC;
+    }
+    .assistant-message {
+      align-self: flex-start;
+      background-color: #E8F5E9;
+      color: #2E7D32;
+      margin-right: auto;
+      border: 1px solid #C8E6C9;
+    }
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background-color: #fafafa;
+      padding: 15px;
+      border-radius: 10px;
+      height: 300px;
+      overflow-y: auto;
+    }
+    .fade-in {
+      animation: fadeIn 0.5s;
+    }
+    .slide-in {
+      animation: slideIn 0.5s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .buttons {
+      display: flex;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    button {
+      background-color: #00897B;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #00796B;
+    }
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .chat-message {
+        max-width: 90%;
+      }
+    }
+    /* Route Transition Style */
+    .page-container {
+      position: relative;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .page-transition {
+      animation: pageTransition 0.5s;
+    }
+    @keyframes pageTransition {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    /* Navigation Bar */
+    nav {
+      background-color: #00897B;
+      padding: 10px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+    }
+    .nav-links {
+      display: flex;
+      gap: 15px;
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .nav-links li a {
+      color: white;
+      text-decoration: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      transition: background-color 0.3s;
+    }
+    .nav-links li a:hover,
+    .nav-links li a.active {
+      background-color: rgba(255,255,255,0.2);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Chakra Frontend Test - styling</h1>
+    <p>Testing UI Components, Animations, and Styling</p>
+  </header>
+  
+  <nav>
+    <ul class="nav-links">
+      <li><a href="#" class="active">Home</a></li>
+      <li><a href="#">Consultations</a></li>
+      <li><a href="#">Templates</a></li>
+      <li><a href="#">Dashboard</a></li>
+    </ul>
+  </nav>
+  
+  <div class="container">
+    <div class="test-section">
+      <div class="test-title">Chat Message Styling</div>
+      <div class="test-description">Testing the appearance of chat messages with proper coloring and borders.</div>
+      <div class="test-content">
+        <div class="chat-container" id="chatContainer">
+          <div class="chat-message user-message">Hello, I need help creating an SLA for my healthcare application.</div>
+          <div class="chat-message assistant-message">I can help you create a comprehensive SLA for healthcare applications. What specific requirements do you have?</div>
+          <div class="chat-message user-message">I need to include HIPAA compliance requirements.</div>
+          <div class="chat-message assistant-message">Great! HIPAA compliance is essential for healthcare applications. I'll make sure to include specific provisions for data privacy, security measures, and breach notification protocols.</div>
+        </div>
+        <div class="buttons">
+          <button onclick="addUserMessage()">Add User Message</button>
+          <button onclick="addAssistantMessage()">Add Assistant Message</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="test-section">
+      <div class="test-title">Animation Effects</div>
+      <div class="test-description">Testing different animation styles for UI elements.</div>
+      <div class="test-content">
+        <div class="buttons">
+          <button onclick="showWithAnimation('fadeIn')">Fade In</button>
+          <button onclick="showWithAnimation('slideIn')">Slide In</button>
+          <button onclick="showWithAnimation('both')">Combined</button>
+        </div>
+        <div id="animationContainer" style="margin-top: 15px;"></div>
+      </div>
+    </div>
+    
+    <div class="test-section">
+      <div class="test-title">Route Transitions</div>
+      <div class="test-description">Testing page transition animations between routes.</div>
+      <div class="test-content">
+        <div class="buttons">
+          <button onclick="simulateRouteChange('Home')">Home Page</button>
+          <button onclick="simulateRouteChange('Consultations')">Consultations Page</button>
+          <button onclick="simulateRouteChange('Templates')">Templates Page</button>
+          <button onclick="simulateRouteChange('Dashboard')">Dashboard Page</button>
+        </div>
+        <div id="routeContainer" class="page-container page-transition">
+          <h2>Home Page</h2>
+          <p>Welcome to Chakra SLM Assistant. This system helps you create and manage Service Level Agreements for various applications.</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="test-section">
+      <div class="test-title">Responsive Design</div>
+      <div class="test-description">Testing responsive layouts for different screen sizes.</div>
+      <div class="test-content">
+        <div class="buttons">
+          <button onclick="setPreviewSize('desktop')">Desktop</button>
+          <button onclick="setPreviewSize('tablet')">Tablet</button>
+          <button onclick="setPreviewSize('mobile')">Mobile</button>
+        </div>
+        <div id="responsiveContainer" style="margin-top: 15px; border: 1px dashed #ccc; transition: all 0.5s; width: 100%; height: 300px; overflow: auto;">
+          <div style="padding: 20px;">
+            <h3>Dashboard Preview</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+              <div style="background-color: #E8F5E9; padding: 15px; border-radius: 5px;">
+                <h4>Active Consultations</h4>
+                <p>12 ongoing consultations</p>
+              </div>
+              <div style="background-color: #E1F5FE; padding: 15px; border-radius: 5px;">
+                <h4>Templates</h4>
+                <p>8 available templates</p>
+              </div>
+              <div style="background-color: #FFF3E0; padding: 15px; border-radius: 5px;">
+                <h4>Recent Activity</h4>
+                <p>3 SLAs generated today</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Chat message functions
+    function addUserMessage() {
+      const container = document.getElementById('chatContainer');
+      const message = document.createElement('div');
+      message.className = 'chat-message user-message fade-in';
+      message.textContent = 'This is a new user message with proper styling.';
+      container.appendChild(message);
+      container.scrollTop = container.scrollHeight;
+    }
+    
+    function addAssistantMessage() {
+      const container = document.getElementById('chatContainer');
+      const message = document.createElement('div');
+      message.className = 'chat-message assistant-message fade-in';
+      message.textContent = 'This is a new assistant message with proper styling.';
+      container.appendChild(message);
+      container.scrollTop = container.scrollHeight;
+    }
+    
+    // Animation functions
+    function showWithAnimation(type) {
+      const container = document.getElementById('animationContainer');
+      container.innerHTML = '';
+      
+      const element = document.createElement('div');
+      element.style.padding = '15px';
+      element.style.backgroundColor = '#E8F5E9';
+      element.style.border = '1px solid #C8E6C9';
+      element.style.borderRadius = '5px';
+      element.textContent = 'This element appears with a ' + type + ' animation.';
+      
+      if (type === 'fadeIn') {
+        element.className = 'fade-in';
+      } else if (type === 'slideIn') {
+        element.className = 'slide-in';
+      } else if (type === 'both') {
+        element.className = 'fade-in slide-in';
+      }
+      
+      container.appendChild(element);
+    }
+    
+    // Route transition functions
+    function simulateRouteChange(pageName) {
+      const container = document.getElementById('routeContainer');
+      container.style.opacity = 0;
+      container.style.transform = 'translateY(20px)';
+      
+      setTimeout(() => {
+        container.innerHTML = '';
+        
+        const title = document.createElement('h2');
+        title.textContent = pageName + ' Page';
+        
+        const content = document.createElement('p');
+        
+        switch(pageName) {
+          case 'Home':
+            content.textContent = 'Welcome to Chakra SLM Assistant. This system helps you create and manage Service Level Agreements for various applications.';
+            break;
+          case 'Consultations':
+            content.textContent = 'View and manage your ongoing consultations. Start a new consultation to create a customized SLA.';
+            break;
+          case 'Templates':
+            content.textContent = 'Browse available SLA templates for different industries and application types.';
+            break;
+          case 'Dashboard':
+            content.textContent = 'View analytics and metrics about your SLAs and consultations.';
+            break;
+        }
+        
+        container.appendChild(title);
+        container.appendChild(content);
+        
+        // Update active nav link
+        document.querySelectorAll('.nav-links li a').forEach(link => {
+          link.classList.remove('active');
+          if (link.textContent === pageName) {
+            link.classList.add('active');
+          }
+        });
+        
+        // Show with animation
+        container.style.opacity = 1;
+        container.style.transform = 'translateY(0)';
+      }, 300);
+    }
+    
+    // Responsive design preview
+    function setPreviewSize(size) {
+      const container = document.getElementById('responsiveContainer');
+      
+      switch(size) {
+        case 'desktop':
+          container.style.width = '100%';
+          break;
+        case 'tablet':
+          container.style.width = '768px';
+          break;
+        case 'mobile':
+          container.style.width = '375px';
+          break;
+      }
+    }
+  </script>
+</body>
+</html>

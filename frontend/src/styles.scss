@@ -1,0 +1,156 @@
+/* Teal Harmony Color Scheme for Chakra SLM Assistant
+   This scheme conveys trust, professionalism, and reliability
+*/
+
+:root {
+  --primary: #00897B;     /* Teal primary */
+  --primary-light: #4DB6AC; /* Light teal */
+  --primary-dark: #005b4f; /* Dark teal for hover states */
+  --secondary: #546E7A;   /* Blue-gray */
+  --secondary-light: #78909C; /* Light blue-gray */
+  --accent: #FF8A65;      /* Coral for CTAs */
+  --accent-light: #FFAB91; /* Light coral for hover states */
+  --background: #F5F7FA;  /* Light background */
+  --surface: #FFFFFF;     /* White surface */
+  --text-primary: #263238; /* Dark text */
+  --text-secondary: #607D8B; /* Lighter text */
+  --error: #F44336;       /* Error state */
+  --success: #4CAF50;     /* Success state */
+  --warning: #FFC107;     /* Warning state */
+  --info: #2196F3;        /* Info state */
+  --border: #E0E0E0;      /* Light border */
+  --shadow: rgba(0, 0, 0, 0.1); /* Shadow color */
+}
+
+/* Typography */
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: var(--text-primary);
+  background-color: var(--background);
+  line-height: 1.6;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+/* Button Styling */
+.btn {
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+.btn-primary:hover, .btn-primary:focus {
+  background-color: var(--primary-dark);
+  border-color: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px var(--shadow);
+}
+
+.btn-secondary {
+  background-color: var(--secondary);
+  border-color: var(--secondary);
+}
+
+.btn-secondary:hover, .btn-secondary:focus {
+  background-color: var(--secondary-light);
+  border-color: var(--secondary-light);
+}
+
+.btn-accent {
+  background-color: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.btn-accent:hover, .btn-accent:focus {
+  background-color: var(--accent-light);
+  border-color: var(--accent-light);
+  color: white;
+}
+
+/* Card Styling */
+.card {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 6px var(--shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background-color: var(--surface);
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px var(--shadow);
+}
+
+.card-header {
+  border-bottom: 1px solid var(--border);
+  background-color: rgba(0, 0, 0, 0.03);
+  padding: 1rem;
+}
+
+/* Navbar Styling */
+.navbar {
+  box-shadow: 0 2px 4px var(--shadow);
+}
+
+.navbar-dark.bg-primary {
+  background-color: var(--primary) !important;
+}
+
+/* Form Controls */
+.form-control {
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.form-control:focus {
+  border-color: var(--primary-light);
+  box-shadow: 0 0 0 0.2rem rgba(0, 137, 123, 0.25);
+}
+
+/* Alert Styling */
+.alert {
+  border-radius: 4px;
+  border: none;
+}
+
+.alert-success {
+  background-color: rgba(76, 175, 80, 0.1);
+  color: var(--success);
+}
+
+.alert-danger {
+  background-color: rgba(244, 67, 54, 0.1);
+  color: var(--error);
+}
+
+.alert-warning {
+  background-color: rgba(255, 193, 7, 0.1);
+  color: var(--warning);
+}
+
+.alert-info {
+  background-color: rgba(33, 150, 243, 0.1);
+  color: var(--info);
+}

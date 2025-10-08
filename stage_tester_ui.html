@@ -1,0 +1,306 @@
+<!-- 
+  Stage Progression Tester
+  
+  This HTML snippet can be pasted into the browser console to create 
+  a simple UI for testing template stage progression.
+  
+  Usage:
+  1. Open the browser console
+  2. Paste the entire contents of this file
+  3. Press Enter
+  4. The test panel will appear on the page
+-->
+
+<div id="stage-progression-tester" style="
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 350px;
+  background-color: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.2);
+  z-index: 10000;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+">
+  <!-- Header -->
+  <div style="
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+  ">
+    <h3 style="margin: 0; font-size: 16px; font-weight: bold;">Stage Progression Tester</h3>
+    <button id="close-tester" style="
+      background: none;
+      border: none;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 5px;
+    ">×</button>
+  </div>
+  
+  <!-- Controls -->
+  <div style="margin-bottom: 15px;">
+    <div style="display: flex; margin-bottom: 10px;">
+      <button id="run-test-1" class="test-btn" style="
+        flex: 1;
+        padding: 8px;
+        margin-right: 5px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      ">Test Service Definitions</button>
+      
+      <button id="run-test-2" class="test-btn" style="
+        flex: 1;
+        padding: 8px;
+        margin-right: 5px;
+        background-color: #2196F3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      ">Test Availability</button>
+    </div>
+    
+    <div style="display: flex;">
+      <button id="run-test-3" class="test-btn" style="
+        flex: 1;
+        padding: 8px;
+        margin-right: 5px;
+        background-color: #9C27B0;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      ">Test Performance</button>
+      
+      <button id="run-test-4" class="test-btn" style="
+        flex: 1;
+        padding: 8px;
+        margin-right: 5px;
+        background-color: #FF9800;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      ">Test Response Times</button>
+    </div>
+  </div>
+  
+  <!-- Status -->
+  <div id="test-status" style="
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    font-size: 13px;
+  ">
+    <strong>Status:</strong> Ready to test
+    <div id="stage-info"></div>
+  </div>
+  
+  <!-- Force Next Stage Button -->
+  <div style="margin-bottom: 15px;">
+    <button id="force-next-stage" style="
+      width: 100%;
+      padding: 10px;
+      background-color: #FF5722;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    ">Force Next Stage</button>
+  </div>
+  
+  <!-- Results -->
+  <div id="test-results" style="
+    font-size: 13px;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 10px;
+  ">
+    Select a test to run
+  </div>
+</div>
+
+<script>
+// Test data for each stage
+const stageTests = {
+  1: [
+    "We need SLAs for our mission-critical database servers, business-critical application servers, and network infrastructure with varying criticality levels. These will be used by our IT operations team, finance department, and executive stakeholders. We need to ensure compliance with SOC 2 Type II, GDPR, HIPAA, and PCI DSS requirements."
+  ],
+  2: [
+    "For mission-critical database servers, we need 99.999% availability with maximum downtime of 5.26 minutes per year and real-time monitoring. Business-critical application servers should have 99.99% availability with maximum 52.6 minutes downtime per year. For network infrastructure, we need varying levels: 99.999% for mission-critical segments and 99.99% for business-critical segments, with monitoring every minute."
+  ],
+  3: [
+    "For our database servers, we need response time under 100ms for queries, 1000 transactions per second minimum, and 99.9% query success rate. For application servers, we need page load times under 2 seconds, API response under 300ms, and support for at least 500 concurrent users. For network infrastructure, we need latency under 50ms, packet loss under 0.1%, and jitter under 30ms."
+  ],
+  4: [
+    "For P1 critical incidents, we need 15-minute response time and 4-hour resolution. For P2 incidents, 30-minute response and 8-hour resolution. P3 incidents should have 2-hour response and 24-hour resolution. We'll need monthly service credits of 10% for missing P1 SLAs, 5% for P2, and 2% for P3."
+  ]
+};
+
+// Set up event handlers
+document.getElementById('close-tester').addEventListener('click', function() {
+  document.getElementById('stage-progression-tester').remove();
+});
+
+// Set up test buttons
+document.querySelectorAll('.test-btn').forEach(button => {
+  button.addEventListener('click', function() {
+    const stage = parseInt(this.id.split('-')[2]);
+    runTest(stage);
+  });
+});
+
+// Force next stage
+document.getElementById('force-next-stage').addEventListener('click', function() {
+  forceNextStage();
+});
+
+// Get current session ID
+function getSessionId() {
+  // This implementation depends on your application's structure
+  // Typically it might be stored in localStorage, sessionStorage, or as a route parameter
+  
+  // Option 1: Check URL for session ID
+  const urlMatch = window.location.href.match(/\/consultations\/(\d+)/);
+  if (urlMatch && urlMatch[1]) {
+    return urlMatch[1];
+  }
+  
+  // Option 2: Check localStorage
+  const storedSession = localStorage.getItem('currentSessionId');
+  if (storedSession) {
+    return storedSession;
+  }
+  
+  // If we can't find it, look through the page for data attributes or hidden fields
+  const sessionElements = document.querySelectorAll('[data-session-id]');
+  if (sessionElements.length > 0) {
+    return sessionElements[0].getAttribute('data-session-id');
+  }
+  
+  // Failed to find session ID
+  updateStatus('Error: Could not find current session ID');
+  return null;
+}
+
+// Run a test for a specific stage
+function runTest(stage) {
+  const sessionId = getSessionId();
+  if (!sessionId) return;
+  
+  const chatInput = document.querySelector('textarea.chat-input, input.chat-input');
+  const sendButton = document.querySelector('button.send-message, button.submit-message');
+  
+  if (!chatInput || !sendButton) {
+    updateStatus('Error: Could not find chat input or send button');
+    return;
+  }
+  
+  // Get the test message
+  const message = stageTests[stage][0];
+  
+  // Update status
+  updateStatus(`Running test for Stage ${stage}...`);
+  updateResults(`Sending message: "${message.substring(0, 50)}..."`);
+  
+  // Set the message in the input
+  chatInput.value = message;
+  chatInput.dispatchEvent(new Event('input', { bubbles: true }));
+  
+  // Click the send button
+  setTimeout(() => {
+    sendButton.click();
+    
+    // Check progress after a delay
+    setTimeout(checkProgress, 2000);
+  }, 100);
+}
+
+// Check if stage progressed
+function checkProgress() {
+  const sessionId = getSessionId();
+  if (!sessionId) return;
+  
+  fetch(`/api/consultation/sessions/${sessionId}/progress`, {
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    const progress = data.progress_percentage || 0;
+    const stage = data.current_stage || 1;
+    
+    updateStatus(`Current stage: ${stage}, Progress: ${progress}%`);
+    document.getElementById('stage-info').textContent = 
+      `Stage ${stage} of ${data.total_stages || '?'}`;
+      
+    updateResults(`Progress checked: ${progress}% complete`);
+  })
+  .catch(error => {
+    updateResults(`Error checking progress: ${error.message}`);
+  });
+}
+
+// Force progression to next stage
+function forceNextStage() {
+  const sessionId = getSessionId();
+  if (!sessionId) return;
+  
+  updateStatus('Forcing progression to next stage...');
+  
+  fetch(`/api/consultation/sessions/${sessionId}/force-next-stage`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+    },
+    body: '{}'
+  })
+  .then(response => response.json())
+  .then(data => {
+    const newStage = data.current_stage_index || '?';
+    const progress = data.progress_percentage || 0;
+    
+    updateStatus(`Forced to stage ${newStage}, Progress: ${progress}%`);
+    updateResults(`Successfully forced progression to stage ${newStage}`);
+    
+    // Refresh stage info
+    setTimeout(checkProgress, 500);
+  })
+  .catch(error => {
+    updateResults(`Error forcing stage: ${error.message}`);
+  });
+}
+
+// Update status display
+function updateStatus(message) {
+  const statusElement = document.getElementById('test-status');
+  statusElement.innerHTML = `<strong>Status:</strong> ${message}`;
+}
+
+// Update results display
+function updateResults(message) {
+  const resultsElement = document.getElementById('test-results');
+  const timestamp = new Date().toLocaleTimeString();
+  resultsElement.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+  resultsElement.scrollTop = resultsElement.scrollHeight;
+}
+
+// Initial progress check
+setTimeout(checkProgress, 500);
+</script>

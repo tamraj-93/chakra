@@ -21,10 +21,21 @@ import { AuthService } from '../../services/auth.service';
               <a class="nav-link" routerLink="/consultation" routerLinkActive="active">Consultation</a>
             </li>
             <li class="nav-item" *ngIf="isLoggedIn">
+              <a class="nav-link" routerLink="/templates" routerLinkActive="active">Templates</a>
+            </li>
+            <li class="nav-item" *ngIf="isLoggedIn">
               <a class="nav-link" routerLink="/template-generator" routerLinkActive="active">Template Generator</a>
             </li>
             <li class="nav-item" *ngIf="isLoggedIn">
+              <a class="nav-link" routerLink="/sla-template-generator" routerLinkActive="active">SLA to Template</a>
+            </li>
+            <li class="nav-item" *ngIf="isLoggedIn">
               <a class="nav-link" routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+            </li>
+            <li class="nav-item" *ngIf="isLoggedIn && isDeveloper">
+              <a class="nav-link text-warning" routerLink="/dev/debug" routerLinkActive="active">
+                <i class="bi bi-wrench"></i> Debug
+              </a>
             </li>
           </ul>
           <ul class="navbar-nav">
@@ -45,6 +56,9 @@ import { AuthService } from '../../services/auth.service';
   styles: []
 })
 export class NavbarComponent {
+  // Enable this for development environments
+  isDeveloper = true;
+  
   get isLoggedIn(): boolean {
     return this.authService.isLoggedIn();
   }

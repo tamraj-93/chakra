@@ -1,6 +1,8 @@
 # Chakra - SLM AI Assistant
 
-A comprehensive AI assistant for Service Level## Development Status
+A comprehensive AI assistant for Service Level Agreement (SLA) management, now with Retrieval-Augmented Generation (RAG) capabilities for more accurate and contextually relevant recommendations.
+
+## Development Status
 
 ### Implemented
 - Backend API structure with FastAPI
@@ -9,6 +11,8 @@ A comprehensive AI assistant for Service Level## Development Status
 - Authentication system with JWT tokens
 - Environment setup for both frontend and backend
 - AI integration for consultation assistance
+- RAG implementation with ChromaDB vector database
+- Knowledge base management for SLA document corpus
 - Test data initialization scripts
 
 ### In Progress

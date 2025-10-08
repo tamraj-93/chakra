@@ -1,11 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from app.core.database import get_db
-from app.models import sla as sla_models
+from app.models import consultation as consultation_models
 from app.models import database as db_models
-from app.services import template as template_service
+from app.models import sla as sla_models
+from app.services import ai as ai_service
+from app.services import pdf_generator
+from app.services import recommendation as recommendation_service
 from app.api.dependencies.auth import get_current_user
 
 router = APIRouter(
@@ -119,4 +122,87 @@ async def generate_template(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Template generation failed: {str(e)}"
+        )
+        
+@router.get("/{template_id}/export", status_code=200)
+async def export_template(
+    template_id: int, 
+    format: str = "pdf", 
+    db: Session = Depends(get_db), 
+    current_user = Depends(get_current_user)
+):
+    """Export a template as PDF or Word document"""
+    # Query for the template
+    template = db.query(db_models.SLATemplate).filter(
+        db_models.SLATemplate.id == template_id,
+        ((db_models.SLATemplate.user_id == current_user.id) | 
+         (db_models.SLATemplate.is_public == True))
+    ).first()
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    # Generate a filename based on the template name
+    safe_name = template.name.lower().replace(" ", "_").replace("/", "_")
+    
+    if format.lower() == "pdf":
+        # Generate PDF content
+        try:
+            # Convert template to dictionary with proper data structure for PDF generator
+            template_dict = {
+                "id": template.id,
+                "name": template.name,
+                "description": getattr(template, "description", ""),
+                "industry": template.industry,
+                "service_type": template.service_type,
+                "template_data": template.template_data,
+                "created_at": str(template.created_at) if hasattr(template, "created_at") else ""
+            }
+            
+            pdf_content = pdf_generator.generate_sla_pdf(template_dict)
+            
+            # Return the PDF as base64 string that frontend can decode
+            return {"filename": f"{safe_name}.pdf", "content": pdf_content, "format": "pdf"}
+        except Exception as e:
+            import logging
+            logging.error(f"PDF generation error: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")
+    
+    elif format.lower() == "docx":
+        # We could implement Word document generation here
+        # For now, return an error
+        raise HTTPException(status_code=400, detail="DOCX format not implemented yet")
+    
+    else:
+        raise HTTPException(status_code=400, detail="Invalid format specified. Supported formats: pdf, docx")
+        
+@router.post("/recommend", response_model=List[Dict[str, Any]])
+async def recommend_templates(
+    requirements: Dict[str, Any], 
+    limit: int = 3,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Recommend templates based on user requirements.
+    
+    Args:
+        requirements: Dictionary with service_type, description, and optional industry
+        limit: Maximum number of recommendations to return
+        
+    Returns:
+        List of recommended templates with similarity scores and match reasons
+    """
+    try:
+        recommendations = await recommendation_service.get_template_recommendations(
+            db=db,
+            user_requirements=requirements,
+            limit=limit
+        )
+        
+        return recommendations
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Template recommendation failed: {str(e)}"
         )

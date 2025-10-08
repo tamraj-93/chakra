@@ -1,6 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { TemplateService } from '../../services/template.service';
+import { RecommendationService, TemplateRecommendation } from '../../services/recommendation.service';
+import { ExportService } from '../../services/export.service';
+import { finalize } from 'rxjs/operators';
 
 @Component({
   selector: 'app-template-generator',
@@ -17,6 +20,23 @@ import { TemplateService } from '../../services/template.service';
                 Generate customized SLA templates based on your service requirements.
               </p>
               
+              <!-- Success message when template is created -->
+              <div class="alert alert-success mb-3" *ngIf="createdTemplateId">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <strong>Success!</strong> Your template has been created successfully.
+                  </div>
+                  <div>
+                    <button type="button" class="btn btn-sm btn-outline-success me-2" (click)="previewTemplate(createdTemplateId)">
+                      <i class="bi bi-eye"></i> Preview
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" (click)="downloadTemplate(createdTemplateId)">
+                      <i class="bi bi-download"></i> Download
+                    </button>
+                  </div>
+                </div>
+              </div>
+              
               <div class="alert alert-info mb-3" *ngIf="!exampleLoaded">
                 <div class="d-flex justify-content-between align-items-center">
                   <div>
@@ -26,6 +46,41 @@ import { TemplateService } from '../../services/template.service';
                     <i class="bi bi-lightning-fill"></i> Load Sample
                   </button>
                 </div>
+              </div>
+              
+              <!-- Template Recommendations Section -->
+              <div class="recommendations-section mb-4" *ngIf="recommendations && recommendations.length > 0">
+                <h5 class="mb-3">
+                  <i class="bi bi-magic"></i> Recommended Templates
+                </h5>
+                <p class="small text-muted">Based on your service requirements, these templates might be a good starting point:</p>
+                
+                <div class="list-group">
+                  <div *ngFor="let rec of recommendations" class="list-group-item list-group-item-action">
+                    <div class="d-flex w-100 justify-content-between">
+                      <h6 class="mb-1">{{ rec.name }}</h6>
+                      <span class="badge bg-primary rounded-pill">{{ rec.similarity_score }}% match</span>
+                    </div>
+                    <p class="mb-1 small">{{ rec.description }}</p>
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                      <small class="text-muted">
+                        <span class="badge bg-light text-dark me-2">{{ rec.industry }}</span>
+                        <span class="badge bg-light text-dark">{{ rec.service_type }}</span>
+                      </small>
+                      <button class="btn btn-sm btn-outline-success" (click)="loadRecommendedTemplate(rec)">
+                        Use Template
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Loading indicator for recommendations -->
+              <div *ngIf="isLoadingRecommendations" class="text-center py-3">
+                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                  <span class="visually-hidden">Loading recommendations...</span>
+                </div>
+                <span class="ms-2">Finding matching templates...</span>
               </div>
 
               <form [formGroup]="templateForm" (ngSubmit)="onSubmit()">
@@ -93,7 +148,7 @@ import { TemplateService } from '../../services/template.service';
                   </div>
                 </div>
 
-                <div class="d-grid gap-2">
+                <div class="d-grid gap-2 mb-3">
                   <button 
                     type="submit" 
                     class="btn btn-primary" 
@@ -107,8 +162,8 @@ import { TemplateService } from '../../services/template.service';
               <div *ngIf="templateUrl" class="mt-4">
                 <div class="alert alert-success">
                   <h5>Template Generated Successfully!</h5>
-                  <p>Your SLA template is ready to download.</p>
-                  <div class="d-flex gap-2">
+                  <p>Your SLA template is ready to view.</p>
+                  <div class="d-flex gap-2 mb-3">
                     <a [href]="templateUrl" class="btn btn-outline-success" download="sla-template.docx">
                       <i class="bi bi-download"></i> Download Template
                     </a>
@@ -116,6 +171,14 @@ import { TemplateService } from '../../services/template.service';
                       <i class="bi bi-chat"></i> Start Consultation
                     </a>
                   </div>
+                </div>
+
+                <!-- Embedded Template Preview -->
+                <div class="template-display-card" *ngIf="createdTemplateId">
+                  <app-template-preview 
+                    [templateId]="createdTemplateId"
+                    [embedded]="true">
+                  </app-template-preview>
                 </div>
               </div>
               
@@ -132,6 +195,27 @@ import { TemplateService } from '../../services/template.service';
           </div>
         </div>
       </div>
+      
+      <!-- Template Preview Modal -->
+      <app-modal [isOpen]="showPreview" (close)="closePreview()">
+        <div class="modal-header">
+          <h5 class="modal-title">Template Preview</h5>
+          <button type="button" class="btn-close" aria-label="Close" (click)="closePreview()"></button>
+        </div>
+        <div class="modal-body">
+          <app-template-preview 
+            [templateId]="previewTemplateId" 
+            *ngIf="previewTemplateId">
+          </app-template-preview>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closePreview()">Close</button>
+          <button type="button" class="btn btn-primary" *ngIf="previewTemplateId && templateUrl" 
+                  [attr.href]="templateUrl" download="sla-template.docx">
+            <i class="bi bi-download"></i> Download
+          </button>
+        </div>
+      </app-modal>
     </div>
   `,
   styles: []
@@ -142,10 +226,17 @@ export class TemplateGeneratorComponent implements OnInit {
   templateUrl: string | null = null;
   exampleLoaded = false;
   errorMessage: string | null = null;
+  isLoadingRecommendations = false;
+  recommendations: TemplateRecommendation[] = [];
+  showPreview = false;
+  previewTemplateId: number | null = null;
+  createdTemplateId: number | null = null;
   
   constructor(
     private formBuilder: FormBuilder,
-    private templateService: TemplateService
+    private templateService: TemplateService,
+    private recommendationService: RecommendationService,
+    private exportService: ExportService
   ) {
     this.templateForm = this.formBuilder.group({
       serviceName: ['', Validators.required],
@@ -159,6 +250,61 @@ export class TemplateGeneratorComponent implements OnInit {
   }
   
   ngOnInit(): void {
+    // Set up form value changes to trigger recommendations
+    this.templateForm.get('serviceType')?.valueChanges.subscribe(() => {
+      this.checkAndGetRecommendations();
+    });
+    
+    this.templateForm.get('description')?.valueChanges.subscribe(() => {
+      this.checkAndGetRecommendations();
+    });
+  }
+  
+  /**
+   * Get template recommendations when enough form data is available
+   */
+  checkAndGetRecommendations(): void {
+    // Only get recommendations if we have enough form data
+    const serviceType = this.templateForm.get('serviceType')?.value;
+    const description = this.templateForm.get('description')?.value;
+    
+    if (serviceType && description && description.length > 20) {
+      this.getRecommendations();
+    }
+  }
+  
+  /**
+   * Request template recommendations based on current form data
+   */
+  getRecommendations(): void {
+    const formValue = this.templateForm.value;
+    
+    // Clear any previous recommendations
+    this.recommendations = [];
+    this.isLoadingRecommendations = true;
+    
+    // Create the request payload
+    const requirements = {
+      service_type: formValue.serviceType,
+      description: formValue.description,
+      industry: 'Healthcare', // Default for now, could be made dynamic later
+    };
+    
+    // Call the recommendation service
+    this.recommendationService.getTemplateRecommendations(requirements)
+      .pipe(
+        finalize(() => {
+          this.isLoadingRecommendations = false;
+        })
+      )
+      .subscribe({
+        next: (results) => {
+          this.recommendations = results;
+        },
+        error: (error) => {
+          console.error('Failed to get template recommendations', error);
+        }
+      });
   }
   
   loadExampleTemplate(): void {
@@ -174,8 +320,84 @@ export class TemplateGeneratorComponent implements OnInit {
     });
     
     this.exampleLoaded = true;
+    
+    // Get recommendations based on this example
+    this.getRecommendations();
   }
   
+  /**
+   * Load a recommended template's data into the form
+   */
+  loadRecommendedTemplate(template: TemplateRecommendation): void {
+    // Get the template details
+    this.isLoading = true;
+    
+    // Fetch the full template details
+    this.templateService.getTemplate(template.id).subscribe({
+      next: (fullTemplate) => {
+        // Extract metrics from the template
+        const metrics = fullTemplate.metrics || [];
+        
+        // Update the form with template data
+        this.templateForm.patchValue({
+          serviceName: fullTemplate.name || template.name,
+          serviceType: template.service_type,
+          description: fullTemplate.description || template.description,
+          // Set metrics checkboxes based on the template
+          availability: metrics.some(m => m.name.toLowerCase().includes('availability')),
+          responseTime: metrics.some(m => m.name.toLowerCase().includes('response')),
+          throughput: metrics.some(m => m.name.toLowerCase().includes('throughput')),
+          errorRate: metrics.some(m => m.name.toLowerCase().includes('error'))
+        });
+        
+        this.isLoading = false;
+        this.exampleLoaded = true;
+      },
+      error: (error) => {
+        console.error('Error loading template details', error);
+        this.errorMessage = 'Failed to load template details. Please try again.';
+        this.isLoading = false;
+      }
+    });
+  }
+  
+  /**
+   * Show template preview in modal
+   */
+  previewTemplate(templateId: number): void {
+    this.previewTemplateId = templateId;
+    this.showPreview = true;
+  }
+  
+  /**
+   * Close the preview modal
+   */
+  closePreview(): void {
+    this.showPreview = false;
+  }
+  
+
+  
+  /**
+   * Download template as PDF
+   */
+  downloadTemplate(templateId: number): void {
+    this.exportService.exportTemplatePdf(templateId).subscribe({
+      next: (response) => {
+        if (response && response.content) {
+          this.exportService.downloadPdf(response.content, response.filename || 'template.pdf');
+        } else {
+          console.error("Invalid PDF response", response);
+          alert("Error generating PDF. Please try again.");
+        }
+      },
+      error: (err) => {
+        console.error("PDF download error:", err);
+        alert("Error downloading PDF. Please try again.");
+      }
+    });
+  }
+
   onSubmit(): void {
     if (this.templateForm.invalid) {
       return;
@@ -183,6 +405,7 @@ export class TemplateGeneratorComponent implements OnInit {
     
     this.isLoading = true;
     this.templateUrl = null;
+    this.createdTemplateId = null;
     
     const formValue = this.templateForm.value;
     const metrics: string[] = [];
@@ -206,6 +429,11 @@ export class TemplateGeneratorComponent implements OnInit {
       next: (templateResponse: any) => {
         console.log('Template created:', templateResponse);
         
+        // Store the created template ID for preview/download
+        if (templateResponse && templateResponse.id) {
+          this.createdTemplateId = templateResponse.id;
+        }
+        
         // Then generate the template document
         const generateRequest = {
           service_name: formValue.serviceName,
@@ -221,6 +449,11 @@ export class TemplateGeneratorComponent implements OnInit {
             if (generateResponse && generateResponse.template_url) {
               this.templateUrl = generateResponse.template_url;
               console.log('Template generated:', generateResponse);
+              
+              // Automatically show preview of the created template
+              if (this.createdTemplateId) {
+                this.previewTemplate(this.createdTemplateId);
+              }
             } else {
               // Mock URL for testing if no URL returned
               this.templateUrl = '/api/templates/download/sample-template.docx';

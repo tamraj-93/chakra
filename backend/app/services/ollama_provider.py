@@ -2,8 +2,12 @@
 Ollama provider implementation for the LLM provider interface.
 """
 import httpx
+import json
 import logging
+import time
+import asyncio
 from typing import List, Dict, Any, Optional
+from datetime import datetime, timedelta
 
 from .llm_provider import LLMProvider
 from app.core.config import OLLAMA_API_URL, OLLAMA_MODEL, LLM_PROVIDER
@@ -22,7 +26,49 @@ class OllamaProvider(LLMProvider):
             api_url = f"http://{api_url}"
         self.api_url = api_url.rstrip("/")
         self.model = OLLAMA_MODEL or "mistral"
+        
+        # Rate limiting configuration
+        self.request_timestamps = []
+        self.max_requests_per_minute = 20  # Adjust based on your Ollama instance capacity
+        self.request_window = 60  # Window in seconds
+        
         logger.info(f"Initialized Ollama provider with URL: {self.api_url} and model: {self.model}")
+    
+    async def apply_rate_limit(self):
+        """
+        Applies rate limiting to prevent overwhelming the Ollama server.
+        If too many requests have been made recently, this will wait before proceeding.
+        Handles cancellation gracefully.
+        """
+        try:
+            # Clean up old timestamps (older than the window)
+            current_time = datetime.now()
+            cutoff_time = current_time - timedelta(seconds=self.request_window)
+            self.request_timestamps = [ts for ts in self.request_timestamps if ts > cutoff_time]
+            
+            # Check if we've hit the rate limit
+            if len(self.request_timestamps) >= self.max_requests_per_minute:
+                # Calculate time to wait
+                oldest_timestamp = min(self.request_timestamps)
+                wait_time = (oldest_timestamp + timedelta(seconds=self.request_window) - current_time).total_seconds()
+                
+                if wait_time > 0:
+                    logger.warning(f"Rate limit reached. Waiting {wait_time:.2f} seconds before next request")
+                    try:
+                        # Use shield to protect against cancellation during sleep
+                        await asyncio.shield(asyncio.sleep(wait_time))
+                    except asyncio.CancelledError:
+                        logger.info("Rate limit wait was cancelled, aborting request")
+                        raise  # Re-raise to propagate cancellation
+                    
+                    # Non-recursive approach to avoid stack overflow
+                    return await self.apply_rate_limit()
+                    
+            # Add current timestamp
+            self.request_timestamps.append(datetime.now())
+        except asyncio.CancelledError:
+            logger.info("Rate limiting was cancelled")
+            raise  # Re-raise to propagate cancellation properly
     
     async def generate_response(self, 
                               messages: List[Dict[str, str]], 
@@ -34,11 +80,110 @@ class OllamaProvider(LLMProvider):
         Args:
             messages: List of message dictionaries with 'role' and 'content' keys
             max_tokens: Maximum number of tokens to generate
-            temperature: Randomness of the generation (0.0-1.0)
+            temperature: Temperature for controlling randomness
             
         Returns:
             Generated text response as a string
         """
+        # Apply rate limiting
+        await self.apply_rate_limit()
+        
+        # Apply context management to prevent token overflow
+        managed_messages = await self.manage_context(messages)
+        
+        # Simple logging
+        logger.info("=" * 50)
+        logger.info("OLLAMA REQUEST START")
+        logger.info(f"API URL: {self.api_url}")
+        logger.info(f"Model: {self.model}")
+        logger.info(f"Original messages count: {len(messages)}")
+        logger.info(f"Managed messages count: {len(managed_messages)}")
+        logger.info("=" * 50)
+        
+        # Use the managed messages instead of original
+        messages = managed_messages
+        
+        # Health check Ollama before making request
+        try:
+            # Test connectivity with multiple methods
+            logger.info(f"Testing Ollama connectivity at {self.api_url}")
+            
+            # Method 1: HTTPX direct
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    logger.info("Trying HTTPX direct connection...")
+                    health_resp = await client.get(f"{self.api_url}/api/tags")
+                    if health_resp.status_code == 200:
+                        logger.info("✓ HTTPX connection successful!")
+                        models = health_resp.json().get("models", [])
+                        model_names = [m.get('name') for m in models if m.get('name')]
+                        logger.info(f"Available models: {model_names}")
+                        # Check if our configured model exists
+                        if not any(self.model in name for name in model_names):
+                            logger.warning(f"⚠️ Configured model '{self.model}' not found in available models")
+                    else:
+                        logger.error(f"✗ HTTPX connection failed: Status {health_resp.status_code}")
+                        logger.error(f"Response: {health_resp.text}")
+                        return f"Ollama service returned error: Status {health_resp.status_code}. Please check if Ollama is running correctly."
+            except Exception as httpx_exc:
+                logger.error(f"✗ HTTPX connection error: {str(httpx_exc)}")
+                
+                # Method 2: Subprocess with curl
+                try:
+                    logger.info("Trying curl subprocess as fallback...")
+                    import subprocess
+                    import json
+                    
+                    curl_cmd = f"curl -s -m 5 {self.api_url}/api/tags"
+                    result = subprocess.run(curl_cmd, shell=True, capture_output=True, text=True)
+                    
+                    if result.returncode == 0 and result.stdout:
+                        logger.info("✓ Curl connection successful!")
+                        try:
+                            curl_data = json.loads(result.stdout)
+                            models = curl_data.get("models", [])
+                            if models:
+                                logger.info(f"Models via curl: {[m.get('name') for m in models if m.get('name')]}")
+                                # We were able to connect, so we can proceed
+                                return
+                        except json.JSONDecodeError:
+                            logger.error(f"✗ Curl response not valid JSON: {result.stdout[:100]}")
+                    else:
+                        logger.error(f"✗ Curl command failed: {result.stderr}")
+                        
+                except Exception as curl_exc:
+                    logger.error(f"✗ Curl fallback error: {str(curl_exc)}")
+                    
+                # Method 3: Network diagnostic info
+                try:
+                    logger.info("Gathering network diagnostic information...")
+                    # Parse URL to get host and port
+                    from urllib.parse import urlparse
+                    parsed_url = urlparse(self.api_url)
+                    host = parsed_url.hostname or 'localhost'
+                    port = parsed_url.port or 11434
+                    
+                    # Check connectivity with socket
+                    import socket
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(2)
+                    try:
+                        s.connect((host, port))
+                        logger.info(f"✓ Socket connection to {host}:{port} successful!")
+                        s.close()
+                    except Exception as sock_exc:
+                        logger.error(f"✗ Socket connection to {host}:{port} failed: {str(sock_exc)}")
+                        return f"Cannot connect to Ollama service at {host}:{port}. Please check if Ollama is running and accessible."
+                    
+                except Exception as diag_exc:
+                    logger.error(f"✗ Network diagnostic error: {str(diag_exc)}")
+                    
+                # If we got here, something is wrong with the API itself
+                return f"Ollama service at {self.api_url} is unreachable. Please check your configuration and ensure Ollama is running."
+                
+        except Exception as health_exc:
+            logger.error(f"✗ Ollama health check failed: {str(health_exc)}")
+            return f"Ollama service is not reachable. Error: {str(health_exc)}. Please ensure Ollama is running at {self.api_url}."
         try:
             # Enhanced logging for debugging
             logger.info("=" * 50)
@@ -83,38 +228,78 @@ class OllamaProvider(LLMProvider):
             except Exception as curl_error:
                 logger.error(f"Curl test failed: {str(curl_error)}")
             
-            # Make async request to Ollama API using a more robust approach
+            # Use the most direct, proven method that works with curl
             logger.info(f"Sending request to Ollama API at: {self.api_url}/api/generate")
             
-            # First try with standard configuration
             try:
-                logger.info("Attempt 1: Standard connection...")
-                async with httpx.AsyncClient(timeout=60.0) as client:
-                    response = await client.post(
-                        f"{self.api_url}/api/generate",
-                        json=payload
-                    )
-                    
-                # Check for successful response
-                if response.status_code == 200:
-                    result = response.json()
-                    logger.info("Successfully received response from Ollama")
-                    logger.info(f"Response sample: {result.get('response', '')[:100]}...")
-                    return result.get("response", "No response generated")
+                # Convert OpenAI-style messages to Ollama format
+                prompt = self._format_messages(messages)
+                logger.info(f"Formatted prompt sample: {prompt[:100]}...")
+                
+                # Use the same exact approach that works with curl
+                import subprocess
+                import json
+                import tempfile
+                
+                # Create a temporary file for the JSON payload to avoid shell escaping issues
+                with tempfile.NamedTemporaryFile(mode='w+', suffix='.json', delete=False) as temp:
+                    # Write the payload to the temp file
+                    json.dump({
+                        "model": self.model,
+                        "prompt": prompt,
+                        "stream": False
+                    }, temp)
+                    temp.flush()  # Make sure it's written to disk
+                    temp_path = temp.name  # Store the path for use after the file is closed
+                
+                logger.info("Using subprocess with curl and temporary file - proven working method")
+                
+                # Use curl with the payload from file to avoid shell escaping issues
+                curl_cmd = f"curl -s -X POST {self.api_url}/api/generate -H 'Content-Type: application/json' -d @{temp_path}"
+                logger.info(f"Running curl command with payload from file: {temp_path}")
+                
+                # Execute the curl command
+                result = subprocess.run(curl_cmd, shell=True, capture_output=True, text=True)
+                
+                # Clean up the temporary file
+                import os
+                try:
+                    os.unlink(temp_path)
+                except Exception as cleanup_error:
+                    logger.warning(f"Failed to clean up temporary file: {str(cleanup_error)}")
+                logger.info(f"Curl command completed with return code: {result.returncode}")
+                
+                # Process the response
+                if result.returncode == 0 and result.stdout:
+                    logger.info(f"Curl output received, length: {len(result.stdout)}")
+                    try:
+                        # Parse JSON response
+                        json_response = json.loads(result.stdout)
+                        response_text = json_response.get('response', '')
+                        logger.info(f"Success! Response sample: {response_text[:50]}...")
+                        return response_text
+                    except json.JSONDecodeError as je:
+                        logger.error(f"Error parsing JSON: {je}")
+                        # If can't parse JSON but have output, return it
+                        if result.stdout.strip():
+                            return f"Parsing error, raw output: {result.stdout[:200]}"
+                        else:
+                            return "Empty response from Ollama"
                 else:
-                    logger.error(f"Ollama API error: Status {response.status_code}")
-                    logger.error(f"Response text: {response.text}")
-                    # Continue to second attempt instead of returning error
-            
+                    logger.error(f"Curl command failed: {result.stderr}")
+                    return f"Error: {result.stderr[:200]}"
             except Exception as e:
-                # Log the exception but continue to try the second approach
-                logger.warning(f"First attempt failed: {str(e)}")
+                logger.error(f"Subprocess execution failed: {str(e)}")
+                return f"Error connecting to Ollama: {str(e)}"
+                
+            except Exception as curl_exc:
+                logger.warning(f"Curl attempt failed: {str(curl_exc)}")
             
-            # Second attempt with more permissive configuration
+            # Fallback to httpx if curl fails
             try:
-                logger.info("Attempt 2: Using relaxed HTTP client settings...")
+                logger.info("Falling back to httpx client...")
                 async with httpx.AsyncClient(
-                    timeout=90.0,         # Increased timeout
+                    timeout=90.0,         # Long timeout
                     verify=False,         # Disable SSL verification for local connections
                     http2=False,          # Disable HTTP/2 which can sometimes cause issues
                     limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
@@ -136,26 +321,28 @@ class OllamaProvider(LLMProvider):
                     return f"I encountered an issue with my local knowledge system (Status: {response.status_code}). Please try again."
                     
             except Exception as e:
-                logger.error(f"Both connection attempts failed: {str(e)}")
+                logger.error(f"Connection attempts failed: {str(e)}")
                 
-                # Final fallback attempt using subprocess as a last resort
+                # Final fallback - try simple command-line curl
                 try:
-                    logger.info("Final attempt: Using subprocess to call curl...")
-                    curl_cmd = f"curl -s -X POST {self.api_url}/api/generate -H 'Content-Type: application/json' -d '{{\"model\":\"{self.model}\",\"prompt\":\"{prompt[:200].replace('\"', '\\\"')}\",\"stream\":false}}'"
-                    result = subprocess.run(curl_cmd, shell=True, capture_output=True, text=True)
+                    logger.info("Final fallback attempt: Using simple curl command...")
+                    # Use a very simple curl command with minimal options
+                    simple_curl_cmd = f"curl -s {self.api_url}/api/tags"
+                    result = subprocess.run(simple_curl_cmd, shell=True, capture_output=True, text=True)
                     
                     if result.returncode == 0 and result.stdout:
-                        logger.info("Successfully received response from curl fallback")
-                        import json
-                        curl_result = json.loads(result.stdout)
-                        return curl_result.get("response", "Generated using fallback method")
+                        logger.info("Basic Ollama connectivity works, but generation failed")
+                        
+                        # Return a more informative message about the connection status
+                        return "I can connect to Ollama, but message processing failed. This could be due to high system load or model issues."
                     else:
-                        logger.error(f"Curl fallback failed: {result.stderr}")
+                        logger.error(f"Basic Ollama connectivity failed: {result.stderr}")
+                        
                 except Exception as curl_error:
-                    logger.error(f"Curl fallback error: {str(curl_error)}")
+                    logger.error(f"Final fallback error: {str(curl_error)}")
                 
-                # If all attempts fail, return a generic error message
-                return "I'm having trouble connecting to my knowledge base. Please try again later."
+                # If all attempts fail, return a detailed error message
+                return "I'm having trouble connecting to the Ollama LLM service. Please verify Ollama is running correctly and has the 'mistral' model installed."
                 
         except httpx.ConnectError as e:
             logger.error(f"Ollama connection error: {str(e)}")
@@ -288,3 +475,447 @@ class OllamaProvider(LLMProvider):
         formatted_messages.append("Assistant: ")
         
         return "".join(formatted_messages)
+        
+    async def fallback_to_smaller_model(self, messages: List[Dict[str, str]], 
+                                      max_tokens: Optional[int] = None,
+                                      temperature: Optional[float] = 0.7) -> str:
+        """
+        Try a smaller model if primary model fails.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content' keys
+            max_tokens: Maximum number of tokens to generate
+            temperature: Temperature for controlling randomness
+            
+        Returns:
+            Generated text response as a string with fallback model notification
+        """
+        # Store original model
+        original_model = self.model
+        
+        # Define fallback models in order of preference
+        fallback_models = [
+            "mistral:7b", 
+            "llama2:7b",
+            "tinyllama:1.1b",
+            "phi:1.5"
+        ]
+        
+        # Skip current model if it's already in the fallback list
+        if original_model in fallback_models:
+            start_index = fallback_models.index(original_model) + 1
+            models_to_try = fallback_models[start_index:]
+        else:
+            models_to_try = fallback_models
+        
+        logger.warning(f"Attempting fallback from {original_model} to smaller models")
+        
+        # Try each fallback model
+        for fallback_model in models_to_try:
+            try:
+                logger.info(f"Trying fallback model: {fallback_model}")
+                self.model = fallback_model
+                
+                # Generate response with fallback model
+                result = await self.generate_response(messages, max_tokens, temperature)
+                logger.info(f"Fallback to {fallback_model} succeeded")
+                
+                # Return the result with a notice that we used a fallback model
+                return f"[Response generated using fallback model {fallback_model}] {result}"
+                
+            except Exception as e:
+                logger.error(f"Fallback to {fallback_model} failed: {str(e)}")
+                continue
+        
+        # If all fallbacks fail, restore original model and return error
+        self.model = original_model
+        return "All model fallbacks failed. Please try again later or with a simpler request."
+        
+    async def stream_response(self, 
+                            messages: List[Dict[str, str]], 
+                            max_tokens: Optional[int] = None,
+                            temperature: Optional[float] = 0.7):
+        """
+        Stream response tokens one by one for real-time display.
+        Handles cancellation gracefully.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content' keys
+            max_tokens: Maximum number of tokens to generate
+            temperature: Temperature for controlling randomness
+            
+        Yields:
+            Text fragments as they are generated
+        """
+        try:
+            # Apply rate limiting
+            await self.apply_rate_limit()
+            
+            # Apply context management to prevent token overflow
+            managed_messages = await self.manage_context(messages)
+            
+            # Format the messages for Ollama
+            prompt = self._format_messages(managed_messages)
+            
+            # Prepare request payload
+            payload = {
+                "model": self.model,
+                "prompt": prompt,
+                "stream": True,  # Enable streaming
+                "options": {
+                    "num_predict": max_tokens or 800,
+                    "temperature": temperature
+                }
+            }
+            
+            logger.info(f"Starting streaming response with model: {self.model}")
+        
+            # Direct HTTPX approach for streaming
+            async with httpx.AsyncClient(timeout=90.0) as client:
+                async with client.stream("POST", f"{self.api_url}/api/generate", 
+                                        json=payload, timeout=None) as response:
+                    if response.status_code != 200:
+                        error_text = await response.aread()
+                        logger.error(f"Streaming error {response.status_code}: {error_text}")
+                        yield f"Error {response.status_code}: Could not generate streaming response"
+                        return
+                    
+                    buffer = ""
+                    async for chunk in response.aiter_text():
+                        try:
+                            # Ollama streaming returns JSON objects
+                            if chunk.strip():
+                                data = json.loads(chunk)
+                                if "response" in data:
+                                    token = data["response"]
+                                    buffer += token
+                                    yield token
+                                
+                                # Check for done flag
+                                if data.get("done", False):
+                                    logger.info("Streaming response completed")
+                                    break
+                                    
+                        except json.JSONDecodeError:
+                            logger.warning(f"Failed to parse streaming chunk: {chunk[:50]}...")
+                            continue
+                        
+        except asyncio.CancelledError:
+            logger.info("Streaming response was cancelled")
+            yield "\n[Response generation cancelled]"
+            raise  # Re-raise to propagate cancellation
+        except Exception as e:
+            logger.error(f"Streaming error: {str(e)}")
+            # Try subprocess with curl for streaming as fallback
+            try:
+                async for token in self._stream_with_curl(messages, max_tokens, temperature):
+                    yield token
+            except asyncio.CancelledError:
+                logger.info("Streaming fallback was cancelled")
+                yield "\n[Response generation cancelled]"
+                raise  # Re-raise to propagate cancellation
+            
+    async def _stream_with_curl(self, 
+                             messages: List[Dict[str, str]], 
+                             max_tokens: Optional[int] = None,
+                             temperature: Optional[float] = 0.7):
+        """
+        Fallback method for streaming using curl subprocess.
+        Handles cancellation gracefully.
+        """
+        import subprocess
+        import json
+        import tempfile
+        
+        prompt = self._format_messages(messages)
+        
+        temp_path = None
+        process = None
+        try:
+            # Create a temporary file for the payload
+            with tempfile.NamedTemporaryFile(mode='w+', suffix='.json', delete=False) as temp:
+                json.dump({
+                    "model": self.model,
+                    "prompt": prompt,
+                    "stream": True,
+                    "options": {
+                        "num_predict": max_tokens or 800,
+                        "temperature": temperature
+                    }
+                }, temp)
+                temp.flush()
+                temp_path = temp.name
+            
+            # Use curl with --no-buffer to stream the output
+            process = subprocess.Popen(
+                f"curl -s -N -X POST {self.api_url}/api/generate -H 'Content-Type: application/json' -d @{temp_path}",
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1  # Line buffered
+            )
+            
+            # Process output line by line with cancellation handling
+            accumulated_text = ""
+            while True:
+                # Use asyncio to make this cancellation-friendly
+                line = await asyncio.get_event_loop().run_in_executor(
+                    None, process.stdout.readline)
+                
+                # Check if we've reached EOF
+                if not line:
+                    break
+                
+                if line.strip():
+                    try:
+                        data = json.loads(line)
+                        if "response" in data:
+                            token = data["response"]
+                            accumulated_text += token
+                            yield token
+                    except json.JSONDecodeError:
+                        continue
+                
+                # Give asyncio a chance to handle cancellation
+                await asyncio.sleep(0)
+                
+        except asyncio.CancelledError:
+            logger.info("Curl streaming was cancelled")
+            if process:
+                # Kill the subprocess on cancellation
+                process.terminate()
+                try:
+                    process.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+            yield "\n[Response generation cancelled]"
+            raise  # Re-raise to propagate cancellation
+                
+        except Exception as curl_err:
+            logger.error(f"Curl streaming fallback failed: {str(curl_err)}")
+            yield "Streaming failed. Please try again with non-streaming request."
+            
+        finally:
+            # Clean up in finally block to ensure it runs
+            if temp_path:
+                import os
+                try:
+                    os.unlink(temp_path)
+                except Exception:
+                    pass
+                
+            if process:
+                try:
+                    if process.poll() is None:  # If process is still running
+                        process.terminate()
+                        process.wait(timeout=1)
+                except Exception:
+                    pass
+            
+    def count_tokens(self, text: str) -> int:
+        """
+        Estimate token count for context management.
+        This is a simple approximation. Different models tokenize differently.
+        
+        Args:
+            text: The text to count tokens for
+            
+        Returns:
+            Estimated token count
+        """
+        # Simple estimation: ~4 chars per token for English text
+        # This is a rough estimate; actual tokenization varies by model
+        if not text:
+            return 0
+        return len(text) // 4
+
+    async def manage_context(self, messages: List[Dict[str, str]], max_tokens: int = 4000) -> List[Dict[str, str]]:
+        """
+        Manage conversation context to prevent exceeding model context limits.
+        Handles cancellation gracefully.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content' keys
+            max_tokens: Maximum number of tokens allowed in the context
+            
+        Returns:
+            A pruned list of messages that fits within the token budget
+        """
+        try:
+            # Count current tokens
+            token_counts = []
+            total_tokens = 0
+            
+            for msg in messages:
+                tokens = self.count_tokens(msg.get("content", ""))
+                token_counts.append(tokens)
+                total_tokens += tokens
+                
+            logger.info(f"Total context size: ~{total_tokens} tokens")
+            
+            # If we're within limits, return all messages
+            if total_tokens <= max_tokens:
+                return messages
+                
+            logger.warning(f"Context size {total_tokens} exceeds limit of {max_tokens} tokens. Pruning...")
+            
+            # Always keep system messages
+            system_msgs = [msg for msg in messages if msg["role"] == "system"]
+            system_tokens = sum(self.count_tokens(msg.get("content", "")) for msg in system_msgs)
+            
+            # Non-system messages that we can include in our budget
+            other_msgs = [msg for msg in messages if msg["role"] != "system"]
+            remaining_budget = max_tokens - system_tokens
+            
+            # Strategy: Keep most recent messages, but always include the first user message
+            # for context. This preserves the initial query and recent conversation.
+            first_user_msg = next((msg for msg in other_msgs if msg["role"] == "user"), None)
+            recent_msgs = []
+            
+            if first_user_msg:
+                first_msg_tokens = self.count_tokens(first_user_msg.get("content", ""))
+                if first_msg_tokens <= remaining_budget:
+                    recent_msgs.append(first_user_msg)
+                    remaining_budget -= first_msg_tokens
+                    # Remove from other_msgs to avoid duplication
+                    if first_user_msg in other_msgs:
+                        other_msgs.remove(first_user_msg)
+            
+            # Add most recent messages until we run out of budget
+            for msg in reversed(other_msgs):
+                tokens = self.count_tokens(msg.get("content", ""))
+                if tokens <= remaining_budget:
+                    recent_msgs.insert(0, msg)  # Insert at beginning to maintain order
+                    remaining_budget -= tokens
+                else:
+                    # If we can't fit this message, consider a summary
+                    if msg["role"] == "user" and tokens > 100:  # Only summarize longer messages
+                        try:
+                            # Create a summarized version with around 1/3 of the tokens
+                            summary = await self._summarize_message(msg["content"], tokens // 3)
+                            summary_tokens = self.count_tokens(summary)
+                            
+                            if summary_tokens <= remaining_budget:
+                                msg["content"] = f"[Summarized] {summary}"
+                                msg["summarized"] = True  # Mark as summarized
+                                recent_msgs.insert(0, msg)
+                                remaining_budget -= summary_tokens
+                        except Exception as e:
+                            logger.error(f"Failed to summarize message: {str(e)}")
+                            # Skip this message if summarization fails
+            
+            # Combine system messages and recent messages
+            pruned_messages = system_msgs + recent_msgs
+            new_total = sum(self.count_tokens(msg.get("content", "")) for msg in pruned_messages)
+            
+            logger.info(f"Pruned context to {new_total} tokens ({len(pruned_messages)} messages)")
+            return pruned_messages
+            
+        except asyncio.CancelledError:
+            logger.info("Context management was cancelled")
+            raise  # Re-raise to propagate cancellation properly
+        except Exception as e:
+            logger.error(f"Error during context management: {str(e)}")
+            # If there's an error in context management, return original messages
+            # to avoid breaking the main functionality
+            return messages
+        
+    async def _summarize_message(self, content: str, target_tokens: int) -> str:
+        """
+        Summarize a message to reduce its token count.
+        This is a simple implementation; could be enhanced with a dedicated summarization model.
+        
+        Args:
+            content: The message content to summarize
+            target_tokens: Target token count for the summary
+            
+        Returns:
+            Summarized content
+        """
+        # Very basic summarization by keeping first and last parts
+        if not content or target_tokens <= 0:
+            return ""
+            
+        # If the content is already small, just return it
+        content_tokens = self.count_tokens(content)
+        if content_tokens <= target_tokens:
+            return content
+            
+        # Convert tokens to characters for our simple approach
+        target_chars = target_tokens * 4
+        
+        # Keep the first 2/3 and last 1/3 of the target length
+        first_part_size = int(target_chars * 0.67)
+        last_part_size = target_chars - first_part_size
+        
+        first_part = content[:first_part_size].strip()
+        last_part = content[-last_part_size:].strip()
+        
+        return f"{first_part}... [content condensed] ...{last_part}"
+        
+    def generate_response_sync(self, 
+                              messages: List[Dict[str, str]], 
+                              max_tokens: Optional[int] = None,
+                              temperature: Optional[float] = 0.7) -> str:
+        """
+        Synchronous version of generate_response for simple use cases.
+        This implementation is compatible with FastAPI's event loop.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content' keys
+            max_tokens: Maximum number of tokens to generate
+            temperature: Randomness of the generation (0.0-1.0)
+            
+        Returns:
+            Generated text response as a string
+        """
+        import requests
+        
+        try:
+            logger.info(f"Generating synchronous response with {self.model} at {self.api_url}")
+            
+            # Format messages for Ollama - using a try/except to handle different formats
+            try:
+                prompt = self._format_messages(messages)
+            except Exception as format_error:
+                logger.error(f"Error formatting messages: {str(format_error)}. Using fallback format.")
+                # Fallback formatting if messages aren't in the expected format
+                if isinstance(messages, list) and all(isinstance(m, dict) for m in messages):
+                    prompt = "\n\n".join([f"{m.get('role', 'user')}: {m.get('content', '')}" for m in messages])
+                else:
+                    # Last resort - just convert to string
+                    prompt = str(messages)
+            
+            # Prepare request payload
+            payload = {
+                "model": self.model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "num_predict": max_tokens or 800,
+                    "temperature": temperature
+                }
+            }
+            
+            # Use requests library directly - no asyncio
+            response = requests.post(
+                f"{self.api_url}/api/generate",
+                json=payload,
+                timeout=60  # 60 second timeout
+            )
+            
+            # Check for successful response
+            if response.status_code == 200:
+                result = response.json()
+                return result.get("response", "")
+            else:
+                logger.error(f"Ollama API error: Status {response.status_code}, {response.text}")
+                return f"Error: Ollama API returned status {response.status_code}"
+                
+        except requests.RequestException as e:
+            logger.error(f"HTTP request error in synchronous generation: {str(e)}")
+            return f"Error connecting to Ollama service: {str(e)}"
+        except Exception as e:
+            logger.error(f"Error in generate_response_sync: {str(e)}")
+            return f"Error generating response: {str(e)}"

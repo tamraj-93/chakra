@@ -17,6 +17,7 @@ class User(Base):
     # Relationships
     templates = relationship("SLATemplate", back_populates="owner")
     sessions = relationship("ConsultationSession", back_populates="owner")
+    consultation_templates = relationship("ConsultationTemplate", back_populates="owner")
 
 
 class SLATemplate(Base):
@@ -56,10 +57,16 @@ class ConsultationSession(Base):
     context_data = Column(JSON)
     recommendations = Column(JSON)
     created_at = Column(DateTime, default=datetime.utcnow)
+    template_id = Column(String, ForeignKey("consultation_templates.id"), nullable=True)
+    session_state = Column(JSON)  # Store stage progression and outputs
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     owner = relationship("User", back_populates="sessions")
     messages = relationship("Message", back_populates="session")
+    
+    # Template relationship is defined in database_templates.py via backref
+    # to avoid circular imports
 
 
 class Message(Base):
@@ -70,6 +77,7 @@ class Message(Base):
     content = Column(String)
     role = Column(String)  # user, assistant, or system
     timestamp = Column(DateTime, default=datetime.utcnow)
+    stage_id = Column(String, nullable=True)  # Reference to ConsultationStage.id
 
     # Relationships
     session = relationship("ConsultationSession", back_populates="messages")

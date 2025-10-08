@@ -15,7 +15,7 @@ class User(UserBase):
     is_active: bool
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Updated name for 'orm_mode' in Pydantic v2
 
 class Token(BaseModel):
     access_token: str

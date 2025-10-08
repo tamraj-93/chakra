@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Chakra Knowledge Capture - Hackathon Demo</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      background: #f5f5f5;
+    }
+    .slide-container {
+      width: 90%;
+      max-width: 1200px;
+      margin: 20px auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .slide-header {
+      background: linear-gradient(135deg, #3f51b5, #2196f3);
+      color: white;
+      padding: 20px 30px;
+    }
+    .slide-header h1 {
+      margin: 0;
+      font-size: 32px;
+      font-weight: 300;
+    }
+    .slide-header p {
+      margin: 10px 0 0;
+      font-size: 18px;
+      opacity: 0.8;
+    }
+    .slide-content {
+      padding: 30px;
+    }
+    .slide-section {
+      margin-bottom: 40px;
+    }
+    h2 {
+      color: #3f51b5;
+      font-weight: 400;
+      margin-top: 0;
+    }
+    .demo-flow {
+      display: flex;
+      justify-content: space-between;
+      margin: 30px 0;
+    }
+    .flow-step {
+      flex: 1;
+      text-align: center;
+      padding: 0 10px;
+      position: relative;
+    }
+    .flow-step:not(:last-child):after {
+      content: "→";
+      position: absolute;
+      right: -10px;
+      top: 40px;
+      font-size: 24px;
+      color: #ccc;
+    }
+    .flow-icon {
+      width: 80px;
+      height: 80px;
+      background: #e3f2fd;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0 auto 15px;
+      font-size: 32px;
+      color: #2196f3;
+    }
+    .flow-title {
+      font-weight: 500;
+      margin-bottom: 5px;
+    }
+    .flow-desc {
+      font-size: 14px;
+      color: #666;
+    }
+    .feature-list {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+    .feature-item {
+      background: #f5f9ff;
+      border-left: 4px solid #2196f3;
+      padding: 15px;
+      border-radius: 0 4px 4px 0;
+    }
+    .feature-item h3 {
+      margin-top: 0;
+      color: #2196f3;
+    }
+    .feature-item p {
+      margin-bottom: 0;
+      font-size: 14px;
+    }
+    .slide-footer {
+      background: #f0f0f0;
+      padding: 20px 30px;
+      text-align: center;
+      font-size: 14px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="slide-container">
+    <div class="slide-header">
+      <h1>Chakra Knowledge Capture System</h1>
+      <p>Turning successful conversations into reusable templates</p>
+    </div>
+    
+    <div class="slide-content">
+      <div class="slide-section">
+        <h2>The Knowledge Capture Loop</h2>
+        <div class="demo-flow">
+          <div class="flow-step">
+            <div class="flow-icon">📝</div>
+            <div class="flow-title">Expert Consultation</div>
+            <div class="flow-desc">Domain expert guides a structured conversation</div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-icon">🧠</div>
+            <div class="flow-title">Pattern Recognition</div>
+            <div class="flow-desc">AI analyzes conversation structure</div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-icon">🔄</div>
+            <div class="flow-title">Template Creation</div>
+            <div class="flow-desc">Consultation patterns become reusable templates</div>
+          </div>
+          <div class="flow-step">
+            <div class="flow-icon">✨</div>
+            <div class="flow-title">Knowledge Scale</div>
+            <div class="flow-desc">Templates enable consistent knowledge reuse</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="slide-section">
+        <h2>Key Features</h2>
+        <div class="feature-list">
+          <div class="feature-item">
+            <h3>Structured Data Visualization</h3>
+            <p>Format complex information into readable, interactive components that highlight key data points.</p>
+          </div>
+          <div class="feature-item">
+            <h3>Automated Template Extraction</h3>
+            <p>Use AI to analyze conversation patterns and identify stages, prompts, and expected outputs.</p>
+          </div>
+          <div class="feature-item">
+            <h3>Interactive Template Editor</h3>
+            <p>Review and customize extracted templates with an intuitive editing interface.</p>
+          </div>
+          <div class="feature-item">
+            <h3>Knowledge Repository</h3>
+            <p>Build a library of templates that capture organizational expertise and best practices.</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="slide-section">
+        <h2>Demo Flow</h2>
+        <ol>
+          <li><strong>Run a structured consultation</strong> to gather and format SLA requirements</li>
+          <li><strong>Click "Create Template"</strong> to extract consultation patterns</li>
+          <li><strong>Review and customize</strong> the generated template structure</li>
+          <li><strong>Save the template</strong> to make it available in the template library</li>
+          <li><strong>Start new consultations</strong> using the newly created template</li>
+        </ol>
+      </div>
+    </div>
+    
+    <div class="slide-footer">
+      Chakra Knowledge Capture System - Hackathon Demo 2025
+    </div>
+  </div>
+</body>
+</html>

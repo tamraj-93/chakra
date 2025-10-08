@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Script to start both frontend and backend servers for the Chakra application
+# Optimized script to start both frontend and backend servers for the Chakra application
 
 # Set the base directory to the script's location
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -22,7 +22,7 @@ trap cleanup SIGINT
 
 # Display header
 echo "==========================================="
-echo "       CHAKRA SLM ASSISTANT STARTUP        "
+echo "   CHAKRA SLM ASSISTANT STARTUP (OPTIMIZED)"
 echo "==========================================="
 
 # Check for dependencies
@@ -47,6 +47,42 @@ if ! command -v ng &> /dev/null; then
     exit 1
 fi
 
+# Check if running in production mode
+PRODUCTION_MODE=false
+if [ "$1" == "--production" ]; then
+    PRODUCTION_MODE=true
+    echo "Running in PRODUCTION mode"
+else
+    echo "Running in DEVELOPMENT mode"
+fi
+
+# Determine the number of workers based on CPU cores
+NUM_CORES=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
+NUM_WORKERS=$(($NUM_CORES * 2 + 1))
+echo "Detected ${NUM_CORES} CPU cores, using ${NUM_WORKERS} workers for backend"
+
+# Check Ollama status and pre-warm model
+echo "Checking Ollama status..."
+if ! curl -s --head http://localhost:11434/api/version > /dev/null; then
+    echo "Warning: Ollama service doesn't appear to be running"
+    echo "Make sure Ollama is running on http://localhost:11434"
+    echo "You can start Ollama with 'ollama serve' in another terminal"
+    sleep 2
+else
+    echo "✓ Ollama is running"
+    
+    # Read model name from .env file or use default
+    MODEL_NAME="mistral"
+    if [ -f "$BASE_DIR/backend/.env" ]; then
+        MODEL_NAME=$(grep "OLLAMA_MODEL" $BASE_DIR/backend/.env | cut -d '=' -f2 || echo "mistral")
+    fi
+    
+    # Pre-warm the Ollama model
+    echo "Pre-warming the Ollama model (${MODEL_NAME})..."
+    curl -s -X POST http://localhost:11434/api/generate -d "{\"model\":\"$MODEL_NAME\",\"prompt\":\"Hello\",\"stream\":false}" > /dev/null
+    echo "✓ Model pre-warmed"
+fi
+
 # Start Backend
 echo -e "\n\nStarting backend server..."
 cd "$BASE_DIR/backend"
@@ -62,9 +98,29 @@ else
     source .venv/bin/activate
 fi
 
-# Start the backend server
+# Initialize healthcare templates
+echo "Initializing healthcare templates..."
+$PYTHON_CMD ./scripts/init_healthcare_templates.py
+echo "✓ Healthcare templates initialized"
+
+# Start the backend server with optimized settings
 echo "Starting FastAPI backend on http://localhost:8000"
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 &
+if [ "$PRODUCTION_MODE" = true ]; then
+    uvicorn app.main:app \
+        --host 0.0.0.0 \
+        --port 8000 \
+        --workers $NUM_WORKERS \
+        --limit-concurrency 50 \
+        --timeout-keep-alive 120 \
+        --log-level warning &
+else
+    uvicorn app.main:app \
+        --reload \
+        --host 0.0.0.0 \
+        --port 8000 \
+        --log-level info &
+fi
+
 BACKEND_PID=$!
 echo "Backend server started with PID: $BACKEND_PID"
 
@@ -81,9 +137,15 @@ if [ ! -d "node_modules" ]; then
     npm install
 fi
 
-# Start the Angular dev server
+# Start the Angular dev server with optimizations
 echo "Starting Angular frontend on http://localhost:4200"
-ng serve --port 4200 &
+if [ "$PRODUCTION_MODE" = true ]; then
+    # Use production configuration
+    ng serve --port 4200 --prod --aot &
+else
+    ng serve --port 4200 &
+fi
+
 FRONTEND_PID=$!
 echo "Frontend server started with PID: $FRONTEND_PID"
 

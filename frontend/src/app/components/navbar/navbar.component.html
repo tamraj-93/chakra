@@ -1,0 +1,53 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand" routerLink="/">
+      <i class="bi bi-shield-check me-2"></i>Chakra
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+      aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+        <li class="nav-item">
+          <a class="nav-link" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
+            Home</a>
+        </li>
+        <li class="nav-item" *ngIf="isLoggedIn">
+          <a class="nav-link" routerLink="/consultation" routerLinkActive="active">New Consultation</a>
+        </li>
+        <li class="nav-item" *ngIf="isLoggedIn">
+          <a class="nav-link" routerLink="/consultation-history" routerLinkActive="active">History</a>
+        </li>
+        <li class="nav-item" *ngIf="isLoggedIn">
+          <a class="nav-link" routerLink="/templates" routerLinkActive="active">Templates</a>
+        </li>
+        <li class="nav-item" *ngIf="isLoggedIn">
+          <a class="nav-link" routerLink="/template-generator" routerLinkActive="active">Generate Templates</a>
+        </li>
+        <li class="nav-item" *ngIf="isLoggedIn">
+          <a class="nav-link" routerLink="/knowledge-base" routerLinkActive="active">Knowledge Base</a>
+        </li>
+      </ul>
+      <div class="d-flex" *ngIf="!isLoggedIn">
+        <button class="btn btn-outline-light me-2" routerLink="/login">Login</button>
+        <button class="btn btn-primary" routerLink="/register">Register</button>
+      </div>
+      <div class="dropdown" *ngIf="isLoggedIn">
+        <button class="btn btn-outline-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown"
+          aria-expanded="false">
+          <i class="bi bi-person-circle me-1"></i>
+          {{ username }}
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+          <li><a class="dropdown-item" routerLink="/profile"><i class="bi bi-person me-2"></i>Profile</a></li>
+          <li><a class="dropdown-item" routerLink="/settings"><i class="bi bi-gear me-2"></i>Settings</a></li>
+          <li>
+            <hr class="dropdown-divider">
+          </li>
+          <li><a class="dropdown-item" href="#" (click)="logout()"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</nav>

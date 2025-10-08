@@ -1,0 +1,670 @@
+from sqlalchemy.orm import Session
+import os
+import logging
+from typing import Dict, Any, Optional
+
+from app.models import database as db_models
+from app.core.config import LLM_PROVIDER
+from .llm_provider import LLMProvider
+from .openai_provider import OpenAIProvider
+from .ollama_provider import OllamaProvider
+from .prompts import get_industry_prompt
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+def detect_industry_from_message(content: str, current_context: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Detect industry mentions in a message and update the session context.
+    
+    Args:
+        content: The message content to analyze
+        current_context: The current session context data
+        
+    Returns:
+        Updated context dictionary with industry information if detected
+    """
+    # Create a copy of the context to avoid modifying the original
+    context = dict(current_context) if current_context else {}
+    
+    # List of industries and their keywords
+    industry_keywords = {
+        "healthcare": ["healthcare", "hospital", "medical", "patient", "clinical", "health", "ehr", "hipaa"],
+        "financial": ["financial", "banking", "finance", "bank", "insurance", "payment", "transaction", "fintech"],
+        "it": ["it service", "software", "cloud", "hosting", "saas", "infrastructure", "platform", "it department"],
+        "ecommerce": ["ecommerce", "retail", "online shop", "e-commerce", "shopping", "store", "marketplace"],
+        "telecommunications": ["telecom", "telecommunication", "network", "carrier", "internet service", "isp"]
+    }
+    
+    # Convert content to lowercase for case-insensitive matching
+    content_lower = content.lower()
+    
+    # Check for industry keywords in the message
+    for industry, keywords in industry_keywords.items():
+        for keyword in keywords:
+            if keyword in content_lower:
+                logger.info(f"Detected industry: {industry} from keyword: {keyword}")
+                context["industry"] = industry
+                return context
+    
+    # Return the original context if no industry is detected
+    return context
+
+def get_llm_provider() -> LLMProvider:
+    """
+    Factory function to get the configured LLM provider.
+    
+    Returns:
+        LLMProvider: The configured LLM provider instance
+    """
+    provider_name = LLM_PROVIDER.lower() if LLM_PROVIDER else "openai"
+    
+    if provider_name == "ollama":
+        logger.info("Using Ollama LLM provider")
+        return OllamaProvider()
+    else:
+        logger.info("Using OpenAI LLM provider")
+        return OpenAIProvider()
+
+async def process_message(
+    content: str,
+    role: str,
+    session_id: Optional[int],
+    user_id: Optional[int],
+    db: Session,
+    template_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Process a message and return an AI response."""
+    
+    # Get or create a new consultation session
+    session = None
+    if session_id:
+        session = db.query(db_models.ConsultationSession).filter(
+            db_models.ConsultationSession.id == session_id
+        ).first()
+    
+    if not session:
+        # Create a new session
+        session_type = "template" if template_id else "discovery"
+        
+        # Initialize session state if using a template
+        session_state = {}
+        if template_id:
+            session_state = {
+                "template_id": template_id,
+                "current_stage_index": 0,
+                "outputs": {},
+                "status": "in_progress"
+            }
+        
+        session = db_models.ConsultationSession(
+            user_id=user_id,
+            session_type=session_type,
+            context_data={},
+            recommendations={},
+            template_id=template_id,
+            session_state=session_state
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+    
+    # Get template data if this is a template-based session
+    template_data = None
+    current_stage = None
+    
+    if session.template_id:
+        from app.models.database_templates import ConsultationTemplate, ExpectedOutput
+        
+        template = db.query(ConsultationTemplate).filter(
+            ConsultationTemplate.id == session.template_id
+        ).first()
+        
+        if template:
+            # Format the template data for easier access
+            from .prompts import get_template_system_prompt, get_stage_prompt, format_stage_message
+            
+            # Get the stages sorted by sequence order
+            stages = sorted(template.stages, key=lambda s: s.sequence_order)
+            
+            # Build the template data with stages and expected outputs
+            template_data = {
+                "id": template.id,
+                "name": template.name,
+                "description": template.description,
+                "initial_system_prompt": template.initial_system_prompt,
+                "stages": []
+            }
+            
+            # Process each stage and its expected outputs
+            for stage in stages:
+                # Get the expected outputs for this stage
+                expected_outputs = []
+                for output in stage.expected_outputs:
+                    expected_outputs.append({
+                        "name": output.name,
+                        "description": output.description,
+                        "data_type": output.data_type,
+                        "required": output.required
+                    })
+                
+                # Add the stage with its expected outputs
+                template_data["stages"].append({
+                    "id": stage.id,
+                    "name": stage.name,
+                    "description": stage.description,
+                    "stage_type": stage.stage_type,
+                    "prompt_template": stage.prompt_template,
+                    "system_instructions": stage.system_instructions,
+                    "next_stage_conditions": stage.next_stage_conditions or {},
+                    "sequence_order": stage.sequence_order,
+                    "expected_outputs": expected_outputs
+                })
+            
+            # Ensure session state is properly initialized
+            logger.info(f"Session state check: {session.session_state}")
+            
+            if not session.session_state:
+                logger.info(f"Initializing session state for template {template.id}")
+                session.session_state = {
+                    "template_id": template.id,
+                    "current_stage_index": 0,
+                    "outputs": {},
+                    "status": "in_progress"
+                }
+            elif isinstance(session.session_state, str):
+                # Handle case where session state might be stored as a JSON string
+                import json
+                try:
+                    session.session_state = json.loads(session.session_state)
+                    logger.info(f"Converted session state from string")
+                except Exception as e:
+                    logger.error(f"Error parsing session state: {str(e)}")
+                    # Reset the session state if it's not valid
+                    session.session_state = {
+                        "template_id": template.id,
+                        "current_stage_index": 0,
+                        "outputs": {},
+                        "status": "in_progress"
+                    }
+            
+            db.commit()
+            
+            # Get the current stage based on session state
+            current_stage_index = session.session_state.get("current_stage_index", 0)
+            if current_stage_index < len(template_data["stages"]):
+                current_stage = template_data["stages"][current_stage_index]
+    
+    # Update session context with detected industry if mentioned
+    if role == "user" and not session.template_id:
+        updated_context = detect_industry_from_message(content, session.context_data)
+        if updated_context != session.context_data:
+            session.context_data = updated_context
+            db.commit()
+    
+    # Save the user message
+    user_message = db_models.Message(
+        session_id=session.id,
+        content=content,
+        role=role
+    )
+    db.add(user_message)
+    db.commit()
+    
+    # Get previous messages in this session
+    messages = db.query(db_models.Message).filter(
+        db_models.Message.session_id == session.id
+    ).order_by(db_models.Message.timestamp).all()
+    
+    # Format messages for LLM API
+    openai_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
+    
+    # Add system message if not present
+    if not any(msg.role == "system" for msg in messages):
+        if template_data:
+            # Use template-specific system prompt
+            from .prompts import get_template_system_prompt
+            system_prompt = get_template_system_prompt(template_data)
+        else:
+            # Use industry-specific prompt
+            industry = None
+            if session.context_data and 'industry' in session.context_data:
+                industry = session.context_data.get('industry')
+            
+            system_prompt = get_industry_prompt(industry)
+        
+        system_message = {
+            "role": "system", 
+            "content": system_prompt
+        }
+        openai_messages.insert(0, system_message)
+    
+    # Add template-specific instructions if applicable
+    if current_stage and role == "user" and template_data:
+        from .prompts import get_stage_prompt
+        
+        # Add stage-specific instructions to guide the AI
+        # Get expected outputs for the current stage
+        expected_outputs = []
+        for stage in template_data["stages"]:
+            if stage["id"] == current_stage["id"]:
+                if "expected_outputs" in stage:
+                    expected_outputs = [output["name"] for output in stage["expected_outputs"]]
+                break
+                
+        stage_instructions = {
+            "role": "system",
+            "content": f"""
+Current stage: {current_stage['name']} ({current_stage['stage_type']})
+Stage description: {current_stage['description']}
+Instructions: {current_stage['system_instructions']}
+
+Expected outputs: {', '.join(expected_outputs) if expected_outputs else 'None specified'}
+
+Your task is to process the user's message according to this stage's requirements.
+Extract the requested information and provide appropriate guidance.
+"""
+        }
+        
+        # Insert the stage instructions right before the latest user message
+        insert_index = len(openai_messages) - 1
+        openai_messages.insert(insert_index, stage_instructions)
+    
+    # Get AI response
+    response = await get_ai_response(openai_messages)
+    
+    # Save AI response to database
+    ai_message = db_models.Message(
+        session_id=session.id,
+        content=response,
+        role="assistant"
+    )
+    db.add(ai_message)
+    
+    # Update template progression if this is a template-based session
+    if current_stage and role == "user" and template_data:
+        # Extract outputs from the AI response (would need advanced extraction logic)
+        # For now, we'll just save the response and progress to the next stage
+        
+        # Store the output in the session state
+        if session.session_state:
+            outputs = session.session_state.get("outputs", {})
+            stage_id = current_stage["id"]
+            
+            if stage_id not in outputs:
+                outputs[stage_id] = {}
+            
+            outputs[stage_id]["response"] = response
+            session.session_state["outputs"] = outputs
+            
+            # Move to the next stage
+            current_stage_index = session.session_state.get("current_stage_index", 0)
+            if current_stage_index + 1 < len(template_data["stages"]):
+                # There are more stages, advance to the next one
+                session.session_state["current_stage_index"] = current_stage_index + 1
+                
+                # Get the next stage for additional context
+                next_stage = template_data["stages"][current_stage_index + 1]
+                next_stage_info = {
+                    "name": next_stage["name"],
+                    "type": next_stage["stage_type"],
+                    "description": next_stage["description"]
+                }
+                
+                # Include next stage info in the response
+                response_with_progress = {
+                    "message": response,
+                    "session_id": session.id,
+                    "template_progress": {
+                        "completed_stage": current_stage["name"],
+                        "completed_stage_index": current_stage_index,
+                        "next_stage": next_stage_info,
+                        "progress_percentage": (current_stage_index + 1) * 100 // len(template_data["stages"])
+                    }
+                }
+                
+                db.commit()
+                return response_with_progress
+            else:
+                # This was the last stage, mark the consultation as completed
+                session.session_state["status"] = "completed"
+                
+                # Include completion info in the response
+                response_with_completion = {
+                    "message": response,
+                    "session_id": session.id,
+                    "template_progress": {
+                        "completed_stage": current_stage["name"],
+                        "completed_stage_index": current_stage_index,
+                        "status": "completed",
+                        "progress_percentage": 100
+                    }
+                }
+                
+                db.commit()
+                return response_with_completion
+    
+    # Track token usage
+    # This is simplified; real implementation would calculate actual token usage
+    token_usage = db_models.TokenUsage(
+        user_id=user_id,
+        tokens_consumed=len(content) + len(response),  # Simplified estimation
+        endpoint="chat",
+        session_id=session.id
+    )
+    db.add(token_usage)
+    db.commit()
+    
+    # Standard response for non-template sessions
+    return {
+        "message": response,
+        "session_id": session.id
+    }
+
+async def get_ai_response(messages: list) -> str:
+    """
+    Get a response from the configured LLM provider.
+    
+    Args:
+        messages: List of message dictionaries with 'role' and 'content' keys
+        
+    Returns:
+        Generated text response as a string
+    """
+    try:
+        # Log the LLM provider we're using
+        provider_name = LLM_PROVIDER.lower() if LLM_PROVIDER else "openai"
+        logger.info(f"Using LLM provider: {provider_name}")
+        
+        # Get the configured provider
+        provider = get_llm_provider()
+        
+        # If using Ollama, perform environment checks
+        if provider_name == "ollama":
+            from app.core.config import OLLAMA_API_URL, OLLAMA_MODEL
+            import socket
+            from urllib.parse import urlparse
+            
+            # Parse the API URL
+            parsed_url = urlparse(OLLAMA_API_URL)
+            host = parsed_url.hostname or "localhost"
+            port = parsed_url.port or 11434
+            
+            # Log Ollama configuration
+            logger.info(f"Ollama API URL: {OLLAMA_API_URL}")
+            logger.info(f"Ollama model: {OLLAMA_MODEL}")
+            
+            # Quick socket connectivity check
+            try:
+                logger.info(f"Quick connectivity check to {host}:{port}")
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(2)
+                s.connect((host, port))
+                s.close()
+                logger.info(f"✓ Socket connectivity check passed")
+            except Exception as socket_exc:
+                logger.error(f"✗ Socket connectivity check failed: {str(socket_exc)}")
+                return f"I'm having trouble connecting to the Ollama service. Please ensure Ollama is running at {host}:{port}."
+        
+        # Generate response using the provider
+        logger.info(f"Calling provider.generate_response with {len(messages)} messages")
+        response = await provider.generate_response(
+            messages=messages,
+            temperature=0.7,
+            max_tokens=800
+        )
+        
+        # Check if the response is an error message from the provider
+        if response and isinstance(response, str):
+            if "ollama" in response.lower() and any(err in response.lower() for err in ["error", "failed", "not", "unreachable"]):
+                logger.error(f"Ollama provider returned error: {response}")
+                return f"I'm having trouble accessing my knowledge base. Technical details: {response}"
+        
+        logger.info(f"Successfully generated response ({len(response)} chars)")
+        return response
+        
+    except Exception as e:
+        # Log the error with traceback for debugging
+        logger.error(f"Error getting AI response: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        # Try to provide a more specific error message
+        error_str = str(e).lower()
+        if "connection" in error_str or "connect" in error_str:
+            return "I'm having trouble connecting to the AI service. Please check your network connection and ensure the AI service is running."
+        elif "timeout" in error_str:
+            return "The AI service took too long to respond. This might be due to high load or complexity of the request."
+        elif "model" in error_str:
+            return "There seems to be an issue with the AI model configuration. Please check that the specified model is available."
+        else:
+            return "I'm having trouble processing your request. Please try again later."
+
+async def extract_template_from_conversation(session, messages):
+    """
+    Extract a reusable template structure from a completed consultation.
+    
+    This function uses the AI to analyze conversation patterns and identify:
+    1. Key stages in the conversation
+    2. Types of information collected in each stage
+    3. Essential prompts that guided the consultation
+    
+    Args:
+        session: The consultation session object
+        messages: List of messages in the consultation
+        
+    Returns:
+        A structured template definition that can be used to create a new template
+    """
+    logger.info(f"Extracting template from session {session.id} with {len(messages)} messages")
+    
+    try:
+        # Format the conversation history for analysis
+        conversation_history = []
+        for msg in messages:
+            conversation_history.append({
+                "role": msg.role,
+                "content": msg.content
+            })
+        
+        # Create a system prompt that instructs the AI how to extract the template
+        system_prompt = {
+            "role": "system",
+            "content": """
+You are an expert template designer. Analyze this conversation and extract a reusable consultation template.
+Break the conversation into logical stages and identify the key information gathered in each stage.
+
+Your output should be a JSON object with the following structure:
+{
+  "name": "A descriptive name for this template based on the consultation",
+  "description": "A brief description of what this template helps users accomplish",
+  "domain": "The industry or domain this template applies to",
+  "initial_system_prompt": "A system prompt that would guide an AI to handle this type of consultation",
+  "stages": [
+    {
+      "name": "Stage name (e.g. 'Requirements Gathering')",
+      "description": "What this stage accomplishes",
+      "stage_type": "One of: introduction, information_gathering, problem_analysis, solution_design, conclusion",
+      "prompt_template": "The prompt that would guide the AI in this stage",
+      "expected_outputs": [
+        {
+          "name": "output_field_name",
+          "description": "What this output represents",
+          "data_type": "One of: string, number, boolean, array, object",
+          "required": true/false
+        }
+      ]
+    }
+  ],
+  "tags": ["tag1", "tag2"]
+}
+            """
+        }
+        
+        # Create the user prompt with the conversation to analyze
+        user_prompt = {
+            "role": "user",
+            "content": f"""
+Please analyze this consultation conversation and extract a reusable template:
+
+{"".join([f"\n{m['role']}: {m['content']}" for m in conversation_history])}
+
+Extract the template structure based on the patterns in this conversation.
+            """
+        }
+        
+        # Get the LLM provider
+        provider = get_llm_provider()
+        
+        # Generate the template structure
+        logger.info("Sending template extraction request to LLM")
+        extraction_messages = [system_prompt, user_prompt]
+        template_json = await provider.generate_response(
+            messages=extraction_messages,
+            temperature=0.1,  # Low temperature for more deterministic output
+            max_tokens=2000   # Ensure enough tokens for complex templates
+        )
+        
+        # Parse the result
+        import json
+        import re
+        
+        # Clean up the response to ensure it's valid JSON
+        # Sometimes the model includes markdown code block indicators
+        template_json = re.sub(r'^```json\s*', '', template_json)
+        template_json = re.sub(r'\s*```$', '', template_json)
+        
+        # Parse the JSON
+        template_structure = json.loads(template_json)
+        
+        # Add metadata
+        template_structure["version"] = "1.0"
+        template_structure["is_public"] = False
+        
+        logger.info(f"Successfully extracted template structure with {len(template_structure.get('stages', []))} stages")
+        
+        return template_structure
+        
+    except Exception as e:
+        logger.error(f"Error extracting template: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise Exception(f"Failed to extract template: {str(e)}")
+
+
+def force_stage_transition(db: Session, session_id: int) -> Dict[str, Any]:
+    """
+    Force a transition to the next stage in a template consultation.
+    
+    This function is used when automatic stage detection fails, allowing
+    manual progression through the consultation stages.
+    
+    Args:
+        db: Database session
+        session_id: ID of the consultation session
+        
+    Returns:
+        Dict with updated stage information
+    """
+    logger.info(f"Forcing stage transition for session {session_id}")
+    
+    # Get the consultation session
+    session = db.query(db_models.ConsultationSession).filter(
+        db_models.ConsultationSession.id == session_id
+    ).first()
+    
+    if not session or not session.template_id:
+        logger.error(f"Session {session_id} not found or not a template consultation")
+        raise ValueError("Session not found or not a template consultation")
+    
+    # Import here to avoid circular imports
+    from app.models.database_templates import ConsultationTemplate, ConsultationStage
+    
+    # Get the template
+    template = db.query(ConsultationTemplate).filter(
+        ConsultationTemplate.id == session.template_id
+    ).first()
+    
+    if not template:
+        logger.error(f"Template {session.template_id} not found")
+        raise ValueError("Template not found")
+    
+    # Ensure session_state exists
+    if not session.session_state:
+        session.session_state = {}
+    
+    # Get current stage information
+    current_stage_id = session.session_state.get('current_stage')
+    completed_stages = session.session_state.get('completed_stages', [])
+    
+    # Get all stages in order
+    stages = db.query(ConsultationStage).filter(
+        ConsultationStage.template_id == template.id
+    ).order_by(ConsultationStage.sequence_order).all()
+    
+    # Find current stage index
+    current_stage_idx = 0
+    if current_stage_id:
+        for idx, stage in enumerate(stages):
+            if stage.id == current_stage_id:
+                current_stage_idx = idx
+                break
+    
+    logger.info(f"Current stage index: {current_stage_idx}, total stages: {len(stages)}")
+    
+    # Move to next stage if possible
+    if current_stage_idx + 1 < len(stages):
+        next_stage = stages[current_stage_idx + 1]
+        
+        # Update session state
+        if current_stage_id and current_stage_id not in completed_stages:
+            completed_stages.append(current_stage_id)
+            
+        session.session_state['current_stage'] = next_stage.id
+        session.session_state['completed_stages'] = completed_stages
+        
+        # Calculate progress percentage
+        progress = ((current_stage_idx + 1) / len(stages)) * 100
+        session.session_state['progress_percentage'] = progress
+        
+        # Save changes
+        db.commit()
+        
+        logger.info(f"Successfully transitioned to stage {next_stage.id} ({next_stage.name})")
+        
+        # Return updated stage information
+        return {
+            "current_stage": next_stage.id,
+            "current_stage_index": current_stage_idx + 1,
+            "progress_percentage": progress,
+            "completed_stages": completed_stages,
+            "is_complete": False,
+            "next_stage": {
+                "id": next_stage.id,
+                "name": next_stage.name,
+                "description": next_stage.description,
+                "type": next_stage.stage_type
+            }
+        }
+    else:
+        # Mark as complete if it was the last stage
+        if current_stage_id and current_stage_id not in completed_stages:
+            completed_stages.append(current_stage_id)
+            
+        session.session_state['completed_stages'] = completed_stages
+        session.session_state['progress_percentage'] = 100
+        session.session_state['is_complete'] = True
+        
+        # Save changes
+        db.commit()
+        
+        logger.info(f"Consultation {session_id} marked as complete")
+        
+        # Return completion information
+        return {
+            "current_stage": current_stage_id,
+            "current_stage_index": current_stage_idx,
+            "progress_percentage": 100,
+            "completed_stages": completed_stages,
+            "is_complete": True
+        }

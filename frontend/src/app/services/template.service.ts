@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { ConsultationTemplate, TemplateStage } from './consultation.service';
 
 // Define interfaces locally
 interface SLATemplate {
@@ -30,11 +31,13 @@ interface SLAMetric {
 })
 export class TemplateService {
   private apiUrl = `${environment.apiUrl}/api/templates`;
+  private consultationTemplatesUrl = `${environment.apiUrl}/api/consultation_templates/templates`;
+  private healthcareTemplatesUrl = `${environment.apiUrl}/api/v1/healthcare-templates`;
 
   constructor(private http: HttpClient) { }
 
   /**
-   * Get all templates with optional filtering
+   * Get all SLA templates with optional filtering
    */
   getTemplates(industry?: string, serviceType?: string): Observable<SLATemplate[]> {
     let url = this.apiUrl;
@@ -47,7 +50,7 @@ export class TemplateService {
   }
 
   /**
-   * Get a specific template
+   * Get a specific SLA template
    */
   getTemplate(templateId: number): Observable<SLATemplate> {
     return this.http.get<SLATemplate>(`${this.apiUrl}/${templateId}`);
@@ -82,5 +85,59 @@ export class TemplateService {
     metrics: string[];
   }): Observable<{ template_url: string }> {
     return this.http.post<{ template_url: string }>(`${this.apiUrl}/generate`, data);
+  }
+
+  /**
+   * Get all consultation templates with optional domain filtering
+   */
+  getConsultationTemplates(domain?: string, isPublic: boolean = true): Observable<ConsultationTemplate[]> {
+    let params: any = {};
+    
+    if (domain) params.domain = domain;
+    params.is_public = isPublic;
+    
+    return this.http.get<ConsultationTemplate[]>(this.consultationTemplatesUrl, { params });
+  }
+
+  /**
+   * Get a specific consultation template by ID
+   */
+  getConsultationTemplate(id: string): Observable<ConsultationTemplate> {
+    return this.http.get<ConsultationTemplate>(`${this.consultationTemplatesUrl}/${id}`);
+  }
+
+  /**
+   * Create a new consultation template
+   */
+  createConsultationTemplate(template: Partial<ConsultationTemplate>): Observable<ConsultationTemplate> {
+    return this.http.post<ConsultationTemplate>(this.consultationTemplatesUrl, template);
+  }
+
+  /**
+   * Update an existing consultation template
+   */
+  updateConsultationTemplate(id: string, template: Partial<ConsultationTemplate>): Observable<ConsultationTemplate> {
+    return this.http.put<ConsultationTemplate>(`${this.consultationTemplatesUrl}/${id}`, template);
+  }
+
+  /**
+   * Delete a consultation template
+   */
+  deleteConsultationTemplate(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.consultationTemplatesUrl}/${id}`);
+  }
+
+  /**
+   * Get all healthcare templates
+   */
+  getHealthcareTemplates(): Observable<any[]> {
+    return this.http.get<any[]>(this.healthcareTemplatesUrl);
+  }
+
+  /**
+   * Get a specific healthcare template by ID
+   */
+  getHealthcareTemplate(id: string): Observable<any> {
+    return this.http.get<any>(`${this.healthcareTemplatesUrl}/${id}`);
   }
 }

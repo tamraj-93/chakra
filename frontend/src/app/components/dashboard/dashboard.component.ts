@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { slideUpAnimation, listAnimation } from '../../shared/animations';
+import { AnalyticsService, MetricData, TimeSeriesData, ComplianceData, SLAPerformance } from '../../services/analytics.service';
 
 interface MetricCard {
   title: string;
@@ -17,12 +18,20 @@ interface MetricCard {
   animations: [slideUpAnimation, listAnimation],
   template: `
     <div class="dashboard-container">
+      <!-- Dashboard Header -->
       <div class="section-header" @slideUpAnimation>
-        <h2>SLM Assistant Dashboard</h2>
-        <p class="text-muted">Analytics and performance metrics</p>
+        <h2>SLM Analytics Dashboard</h2>
+        <p class="text-muted">Service Level Metrics & Performance Indicators</p>
       </div>
       
-      <div class="metrics-row" @listAnimation>
+      <!-- Loading Indicator -->
+      <div *ngIf="isLoading" class="loading-indicator">
+        <div class="spinner"></div>
+        <p>Loading dashboard data...</p>
+      </div>
+      
+      <!-- Key Metrics -->
+      <div *ngIf="!isLoading" class="metrics-row" @listAnimation>
         <div *ngFor="let metric of metrics; let i = index" class="metric-card" 
              [style.background]="metric.color">
           <div class="metric-icon">
@@ -41,27 +50,115 @@ interface MetricCard {
         </div>
       </div>
       
-      <div class="chart-container" @slideUpAnimation>
-        <div class="chart-header">
-          <h3>Consultations Activity</h3>
-          <div class="chart-controls">
-            <select class="form-select">
-              <option>Last 7 days</option>
-              <option>Last 30 days</option>
-              <option>Last 90 days</option>
-            </select>
-          </div>
-        </div>
-        <div class="chart-placeholder">
-          <div class="chart-bars">
-            <div *ngFor="let day of activityData" class="chart-bar" 
-                 [style.height.%]="day.percentage">
-              <div class="bar-tooltip">{{ day.count }} consultations</div>
+      <!-- Dashboard Grid -->
+      <div class="dashboard-grid" *ngIf="!isLoading">
+        <!-- Consultations Activity Chart -->
+        <div class="chart-container" @slideUpAnimation>
+          <div class="chart-header">
+            <h3>Consultations Activity</h3>
+            <div class="chart-controls">
+              <select class="form-select" (change)="loadActivityData($event)">
+                <option value="week">Last 7 days</option>
+                <option value="month">Last 30 days</option>
+                <option value="quarter">Last 90 days</option>
+              </select>
             </div>
           </div>
-          <div class="chart-labels">
-            <div *ngFor="let day of activityData" class="chart-label">
-              {{ day.label }}
+          <div class="chart-placeholder">
+            <div class="chart-bars">
+              <div *ngFor="let day of activityData" class="chart-bar" 
+                  [style.height.%]="day.percentage">
+                <div class="bar-tooltip">{{ day.count }} consultations</div>
+              </div>
+            </div>
+            <div class="chart-labels">
+              <div *ngFor="let day of activityData" class="chart-label">
+                {{ day.label }}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- SLA Compliance -->
+        <div class="chart-container" @slideUpAnimation>
+          <div class="chart-header">
+            <h3>SLA Compliance by Category</h3>
+          </div>
+          <div class="compliance-container">
+            <div *ngFor="let item of complianceData" class="compliance-item">
+              <div class="compliance-info">
+                <span class="compliance-category">{{ item.category }}</span>
+                <span class="compliance-percentage">{{ item.percentage }}%</span>
+              </div>
+              <div class="compliance-bar-bg">
+                <div class="compliance-bar" [style.width.%]="item.percentage" 
+                    [style.background-color]="item.color"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- SLA Performance Metrics -->
+      <div class="sla-performance-container" *ngIf="!isLoading" @slideUpAnimation>
+        <h3>SLA Performance Metrics</h3>
+        <div class="sla-performance-table">
+          <div class="sla-table-header">
+            <div class="sla-header-cell">Metric</div>
+            <div class="sla-header-cell">Current Value</div>
+            <div class="sla-header-cell">Threshold</div>
+            <div class="sla-header-cell">Status</div>
+          </div>
+          <div *ngFor="let metric of slaPerformance" class="sla-table-row">
+            <div class="sla-cell">{{ metric.name }}</div>
+            <div class="sla-cell">{{ metric.currentValue }}{{ metric.unit }}</div>
+            <div class="sla-cell">{{ metric.threshold }}{{ metric.unit }}</div>
+            <div class="sla-cell">
+              <span class="status-indicator" [ngClass]="metric.status">
+                <i class="bi" 
+                  [ngClass]="{'bi-check-circle-fill': metric.status === 'success', 
+                            'bi-exclamation-triangle-fill': metric.status === 'warning',
+                            'bi-x-circle-fill': metric.status === 'danger'}"></i>
+                {{ metric.status === 'success' ? 'Compliant' : 
+                   metric.status === 'warning' ? 'At Risk' : 'Non-Compliant' }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Recent Activity -->
+      <div class="recent-activity-container" *ngIf="!isLoading" @slideUpAnimation>
+        <h3>Recent Activity</h3>
+        <div class="activity-list">
+          <div class="activity-item">
+            <div class="activity-icon success">
+              <i class="bi bi-check-circle"></i>
+            </div>
+            <div class="activity-content">
+              <div class="activity-title">SLA Compliance Check Passed</div>
+              <div class="activity-details">Healthcare Cloud Platform (HC-2023-001)</div>
+              <div class="activity-time">Today, 10:45 AM</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon warning">
+              <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="activity-content">
+              <div class="activity-title">Response Time Warning</div>
+              <div class="activity-details">Financial Services API (FS-2023-005)</div>
+              <div class="activity-time">Yesterday, 3:22 PM</div>
+            </div>
+          </div>
+          <div class="activity-item">
+            <div class="activity-icon info">
+              <i class="bi bi-file-earmark-text"></i>
+            </div>
+            <div class="activity-content">
+              <div class="activity-title">New SLA Created</div>
+              <div class="activity-details">Telecom Network Services (TN-2023-008)</div>
+              <div class="activity-time">Sep 28, 2:15 PM</div>
             </div>
           </div>
         </div>
@@ -85,6 +182,31 @@ interface MetricCard {
       margin-bottom: 0.5rem;
     }
     
+    /* Loading indicator */
+    .loading-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 0;
+    }
+    
+    .spinner {
+      border: 4px solid rgba(0, 150, 136, 0.1);
+      border-radius: 50%;
+      border-top: 4px solid var(--primary);
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin-bottom: 1rem;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Metrics Cards */
     .metrics-row {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -100,6 +222,12 @@ interface MetricCard {
       overflow: hidden;
       box-shadow: 0 4px 6px var(--shadow);
       color: white;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .metric-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 12px var(--shadow);
     }
     
     .metric-icon {
@@ -154,11 +282,21 @@ interface MetricCard {
       color: rgba(255, 255, 255, 0.9);
     }
     
+    /* Dashboard Grid Layout */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+    
+    /* Chart Container */
     .chart-container {
       background-color: white;
       border-radius: 12px;
       padding: 1.5rem;
       box-shadow: 0 2px 4px var(--shadow);
+      height: 100%;
     }
     
     .chart-header {
@@ -232,50 +370,262 @@ interface MetricCard {
       font-size: 0.8rem;
       color: var(--text-secondary);
     }
+    
+    /* Compliance Chart */
+    .compliance-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    
+    .compliance-item {
+      width: 100%;
+    }
+    
+    .compliance-info {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+    
+    .compliance-category {
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    
+    .compliance-percentage {
+      font-weight: 600;
+    }
+    
+    .compliance-bar-bg {
+      width: 100%;
+      height: 8px;
+      background-color: #e9ecef;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    
+    .compliance-bar {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+    
+    /* SLA Performance Table */
+    .sla-performance-container {
+      background-color: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 4px var(--shadow);
+      margin-bottom: 2.5rem;
+    }
+    
+    .sla-performance-container h3 {
+      font-size: 1.2rem;
+      color: var(--primary);
+      margin-bottom: 1.5rem;
+    }
+    
+    .sla-performance-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    .sla-table-header {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      padding: 0.75rem 1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+    
+    .sla-table-row {
+      display: grid;
+      grid-template-columns: 2fr 1fr 1fr 1fr;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #e9ecef;
+    }
+    
+    .sla-table-row:last-child {
+      border-bottom: none;
+    }
+    
+    .sla-header-cell,
+    .sla-cell {
+      display: flex;
+      align-items: center;
+    }
+    
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 500;
+    }
+    
+    .status-indicator i {
+      margin-right: 0.25rem;
+    }
+    
+    .status-indicator.success {
+      background-color: rgba(40, 167, 69, 0.1);
+      color: #28a745;
+    }
+    
+    .status-indicator.warning {
+      background-color: rgba(255, 193, 7, 0.1);
+      color: #ffc107;
+    }
+    
+    .status-indicator.danger {
+      background-color: rgba(220, 53, 69, 0.1);
+      color: #dc3545;
+    }
+    
+    /* Recent Activity */
+    .recent-activity-container {
+      background-color: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 4px var(--shadow);
+    }
+    
+    .recent-activity-container h3 {
+      font-size: 1.2rem;
+      color: var(--primary);
+      margin-bottom: 1.5rem;
+    }
+    
+    .activity-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    
+    .activity-item {
+      display: flex;
+      align-items: flex-start;
+      padding: 1rem;
+      border-radius: 8px;
+      background-color: #f8f9fa;
+    }
+    
+    .activity-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      margin-right: 1rem;
+    }
+    
+    .activity-icon.success {
+      background-color: rgba(40, 167, 69, 0.1);
+      color: #28a745;
+    }
+    
+    .activity-icon.warning {
+      background-color: rgba(255, 193, 7, 0.1);
+      color: #ffc107;
+    }
+    
+    .activity-icon.info {
+      background-color: rgba(13, 110, 253, 0.1);
+      color: #0d6efd;
+    }
+    
+    .activity-icon i {
+      font-size: 1.2rem;
+    }
+    
+    .activity-content {
+      flex: 1;
+    }
+    
+    .activity-title {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    
+    .activity-details {
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+      color: var(--text-secondary);
+    }
+    
+    .activity-time {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    
+    @media (max-width: 768px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .sla-table-header,
+      .sla-table-row {
+        grid-template-columns: 2fr 1fr 1fr;
+      }
+      
+      .sla-header-cell:nth-child(3),
+      .sla-cell:nth-child(3) {
+        display: none;
+      }
+    }
   `]
 })
 export class DashboardComponent implements OnInit {
-  metrics: MetricCard[] = [
-    {
-      title: 'Total Consultations',
-      value: '152',
-      icon: 'chat-dots',
-      trend: { value: 12.5, isPositive: true },
-      color: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)'
-    },
-    {
-      title: 'Active Users',
-      value: '37',
-      icon: 'people',
-      trend: { value: 8.3, isPositive: true },
-      color: 'linear-gradient(135deg, var(--secondary) 0%, var(--secondary-light) 100%)'
-    },
-    {
-      title: 'Avg. Response Time',
-      value: '1.8s',
-      icon: 'clock',
-      trend: { value: 5.2, isPositive: false },
-      color: 'linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%)'
-    },
-    {
-      title: 'Templates Used',
-      value: '48',
-      icon: 'file-earmark-text',
-      color: 'linear-gradient(135deg, #26C6DA 0%, #80DEEA 100%)'
-    }
-  ];
+  metrics: MetricCard[] = [];
+  activityData: TimeSeriesData[] = [];
+  complianceData: ComplianceData[] = [];
+  slaPerformance: SLAPerformance[] = [];
   
-  activityData = [
-    { label: 'Mon', count: 22, percentage: 55 },
-    { label: 'Tue', count: 28, percentage: 70 },
-    { label: 'Wed', count: 40, percentage: 100 },
-    { label: 'Thu', count: 32, percentage: 80 },
-    { label: 'Fri', count: 24, percentage: 60 },
-    { label: 'Sat', count: 18, percentage: 45 },
-    { label: 'Sun', count: 12, percentage: 30 }
-  ];
+  selectedPeriod: string = 'week';
+  isLoading: boolean = true;
   
-  constructor() { }
+  constructor(private analyticsService: AnalyticsService) { }
 
-  ngOnInit(): void { }
+  ngOnInit(): void {
+    this.loadDashboardData();
+  }
+  
+  loadDashboardData(): void {
+    this.isLoading = true;
+    
+    // Load dashboard metrics
+    this.analyticsService.getDashboardMetrics().subscribe(data => {
+      this.metrics = data;
+      this.isLoading = false;
+    });
+    
+    // Load consultation activity
+    this.loadActivityData(this.selectedPeriod);
+    
+    // Load SLA compliance data
+    this.analyticsService.getSLACompliance().subscribe(data => {
+      this.complianceData = data;
+    });
+    
+    // Load SLA performance metrics
+    this.analyticsService.getSLAPerformance().subscribe(data => {
+      this.slaPerformance = data;
+    });
+  }
+  
+  loadActivityData(event: Event | string): void {
+    // Handle both direct string parameter and event from select
+    const period = typeof event === 'string' ? event : (event.target as HTMLSelectElement).value;
+    
+    this.selectedPeriod = period;
+    this.analyticsService.getConsultationActivity(period).subscribe(data => {
+      this.activityData = data;
+    });
+  }
 }

@@ -1,0 +1,93 @@
+.document-card {
+  cursor: pointer;
+  transition: transform 0.2s;
+  margin-bottom: 1rem;
+
+  &:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+  }
+}
+
+.document-item {
+  border-left: 3px solid #007bff;
+  transition: background-color 0.2s;
+  
+  &:hover {
+    background-color: rgba(0,123,255,0.05);
+  }
+}
+
+.document-status {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 5px;
+
+  &.processed {
+    background-color: #28a745;
+  }
+  
+  &.pending {
+    background-color: #ffc107;
+  }
+  
+  &.error {
+    background-color: #dc3545;
+  }
+}
+
+.upload-area {
+  border: 2px dashed #ccc;
+  border-radius: 5px;
+  padding: 20px;
+  text-align: center;
+  background-color: #f8f9fa;
+  transition: all 0.3s;
+
+  &:hover {
+    border-color: #007bff;
+    background-color: #f1f8ff;
+  }
+}
+
+.search-box {
+  position: relative;
+  
+  .clear-search {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #6c757d;
+    
+    &:hover {
+      color: #343a40;
+    }
+  }
+}
+
+.file-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.document-details {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.document-preview {
+  min-height: 300px;
+  max-height: 600px;
+  overflow-y: auto;
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 5px;
+}
+
+.upload-progress {
+  height: 6px;
+}

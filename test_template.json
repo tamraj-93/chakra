@@ -1,0 +1,114 @@
+{
+  "name": "SLA Requirements Gathering",
+  "description": "A template to guide users through SLA requirements gathering process",
+  "domain": "IT",
+  "version": "1.0",
+  "tags": ["sla", "it", "requirements"],
+  "initial_system_prompt": "You are Chakra, an AI assistant specializing in SLA creation and management. Your goal is to help the user gather requirements for an effective SLA. Follow each stage carefully and guide the user through the process.",
+  "stages": [
+    {
+      "name": "Service Identification",
+      "description": "Identify the services that need SLAs",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's start by identifying the services that will be covered by the SLA. What IT or business services do you need to define service levels for?",
+      "system_instructions": "Help the user identify the key services that need SLAs. Ask clarifying questions to ensure you understand the scope of services.",
+      "expected_outputs": [
+        {
+          "name": "service_list",
+          "description": "List of services to be covered by the SLA",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "service_criticality",
+          "description": "Criticality level of each service (high, medium, low)",
+          "data_type": "object",
+          "required": false
+        }
+      ],
+      "ui_components": {},
+      "next_stage_conditions": {
+        "default": "Performance Metrics"
+      }
+    },
+    {
+      "name": "Performance Metrics",
+      "description": "Define key performance metrics for the identified services",
+      "stage_type": "information_gathering",
+      "prompt_template": "Now, let's define the key performance metrics for each service. For example, uptime, response time, resolution time, etc. What metrics are important for measuring the performance of your services?",
+      "system_instructions": "Guide the user to identify appropriate metrics for each service. Suggest common metrics based on the service type.",
+      "expected_outputs": [
+        {
+          "name": "metrics",
+          "description": "Key performance metrics for each service",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "thresholds",
+          "description": "Target thresholds for each metric",
+          "data_type": "object",
+          "required": false
+        }
+      ],
+      "ui_components": {},
+      "next_stage_conditions": {
+        "default": "Support Levels"
+      }
+    },
+    {
+      "name": "Support Levels",
+      "description": "Define support levels, escalation procedures, and response times",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define the support levels and escalation procedures for the SLA. What support tiers do you need, and what are the expected response times for each?",
+      "system_instructions": "Help the user define appropriate support tiers, escalation paths, and response/resolution time targets.",
+      "expected_outputs": [
+        {
+          "name": "support_tiers",
+          "description": "Support tiers and their definitions",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "escalation_path",
+          "description": "Escalation path for unresolved issues",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "response_times",
+          "description": "Target response times for each tier",
+          "data_type": "object",
+          "required": true
+        }
+      ],
+      "ui_components": {},
+      "next_stage_conditions": {
+        "default": "SLA Summary"
+      }
+    },
+    {
+      "name": "SLA Summary",
+      "description": "Summarize the SLA requirements gathered",
+      "stage_type": "summary",
+      "prompt_template": "Based on our discussion, I'll now summarize the SLA requirements we've gathered. Please review and let me know if anything needs to be adjusted.",
+      "system_instructions": "Provide a comprehensive summary of all information gathered during the previous stages. Organize the summary in a clear, structured format.",
+      "expected_outputs": [
+        {
+          "name": "sla_summary",
+          "description": "Complete summary of SLA requirements",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "recommendations",
+          "description": "Recommendations for SLA implementation",
+          "data_type": "list",
+          "required": false
+        }
+      ],
+      "ui_components": {},
+      "next_stage_conditions": {}
+    }
+  ]
+}

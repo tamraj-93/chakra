@@ -18,6 +18,9 @@ import { Component } from '@angular/core';
         <a class="btn btn-primary btn-lg" routerLink="/consultation">
           Start Consultation
         </a>
+        <a class="btn btn-info btn-lg" routerLink="/templates">
+          Template Consultations
+        </a>
         <a class="btn btn-secondary btn-lg" routerLink="/template-generator">
           Generate SLA Template
         </a>

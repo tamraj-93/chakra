@@ -11,7 +11,7 @@ NC='\033[0m' # No Color
 cd "$(dirname "$0")"
 
 echo -e "${BLUE}==================================================${NC}"
-echo -e "${BLUE}     STARTING CHAKRA BACKEND SERVER              ${NC}"
+echo -e "${BLUE}     STARTING CHAKRA BACKEND SERVER (OPTIMIZED)   ${NC}"
 echo -e "${BLUE}==================================================${NC}"
 
 # Kill any existing backend processes
@@ -48,12 +48,37 @@ ACCESS_TOKEN_EXPIRE_MINUTES=60
 LLM_PROVIDER=ollama
 OLLAMA_API_URL=http://localhost:11434
 OLLAMA_MODEL=mistral
+
+# Performance settings
+UVICORN_WORKERS=4
 EOL
     echo -e "${GREEN}✓ Created .env file${NC}"
 fi
 
+# Determine the number of workers based on CPU cores
+NUM_CORES=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 2)
+NUM_WORKERS=$(($NUM_CORES * 2 + 1))
+echo -e "${GREEN}Detected ${NUM_CORES} CPU cores, using ${NUM_WORKERS} workers${NC}"
+
 # Move to backend directory
 cd backend || exit
+
+# Check if Ollama is running
+echo -e "${YELLOW}Checking Ollama status...${NC}"
+if ! curl -s --head http://localhost:11434/api/version > /dev/null; then
+    echo -e "${RED}Warning: Ollama service doesn't appear to be running${NC}"
+    echo -e "${YELLOW}Make sure Ollama is running on http://localhost:11434${NC}"
+    echo -e "${YELLOW}You can start Ollama with 'ollama serve' in another terminal${NC}"
+    sleep 2
+else
+    echo -e "${GREEN}✓ Ollama is running${NC}"
+    
+    # Pre-warm the Ollama model
+    echo -e "${YELLOW}Pre-warming the Ollama model...${NC}"
+    MODEL_NAME=$(grep "OLLAMA_MODEL" .env | cut -d '=' -f2 || echo "mistral")
+    curl -s -X POST http://localhost:11434/api/generate -d "{\"model\":\"$MODEL_NAME\",\"prompt\":\"Hello\",\"stream\":false}" > /dev/null
+    echo -e "${GREEN}✓ Model pre-warmed${NC}"
+fi
 
 # Install required packages directly
 echo -e "${YELLOW}Installing required packages...${NC}"
@@ -63,24 +88,46 @@ $PYTHON_CMD -m pip install -r requirements.txt || {
 }
 
 # Check for virtual environment
-if [ -d "./backend/venv" ]; then
-    echo -e "${GREEN}Using virtual environment at ./backend/venv${NC}"
-    source ./backend/venv/bin/activate
-elif [ -d "./backend/.venv" ]; then
-    echo -e "${GREEN}Using virtual environment at ./backend/.venv${NC}"
-    source ./backend/.venv/bin/activate
+if [ -d "./venv" ]; then
+    echo -e "${GREEN}Using virtual environment at ./venv${NC}"
+    source ./venv/bin/activate
+elif [ -d "./.venv" ]; then
+    echo -e "${GREEN}Using virtual environment at ./.venv${NC}"
+    source ./.venv/bin/activate
 else
     echo -e "${YELLOW}No virtual environment found. Creating one...${NC}"
-    $PYTHON_CMD -m venv ./backend/venv
-    source ./backend/venv/bin/activate
-    echo -e "${GREEN}Virtual environment created at ./backend/venv${NC}"
+    $PYTHON_CMD -m venv ./.venv
+    source ./.venv/bin/activate
+    echo -e "${GREEN}Virtual environment created at ./.venv${NC}"
     echo -e "${YELLOW}Installing required packages in virtual environment...${NC}"
-    pip install -r ./backend/requirements.txt
+    pip install -r requirements.txt
 fi
 
-# Start the backend
-echo -e "${YELLOW}Starting backend server...${NC}"
-cd backend && python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Initialize healthcare templates
+echo -e "${YELLOW}Initializing healthcare templates...${NC}"
+python ./scripts/init_healthcare_templates.py
+
+# Start the backend with optimized settings
+echo -e "${YELLOW}Starting backend server with optimized settings...${NC}"
+
+# In production mode, we don't use --reload flag
+if [ "$1" == "--production" ]; then
+    echo -e "${GREEN}Running in PRODUCTION mode (no auto-reload)${NC}"
+    python -m uvicorn app.main:app \
+        --host 0.0.0.0 \
+        --port 8000 \
+        --workers $NUM_WORKERS \
+        --limit-concurrency 50 \
+        --timeout-keep-alive 120 \
+        --log-level warning
+else
+    echo -e "${YELLOW}Running in DEVELOPMENT mode (with auto-reload)${NC}"
+    python -m uvicorn app.main:app \
+        --reload \
+        --host 0.0.0.0 \
+        --port 8000 \
+        --log-level info
+fi
 
 echo -e "${BLUE}==================================================${NC}"
 echo -e "${BLUE}     BACKEND SERVER STARTED                      ${NC}"

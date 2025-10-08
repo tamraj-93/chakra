@@ -1,0 +1,41 @@
+@router.get("/{template_id}/export", status_code=200)
+async def export_template(
+    template_id: int, 
+    format: str = "pdf", 
+    db: Session = Depends(get_db), 
+    current_user = Depends(get_current_user)
+):
+    """Export a template as PDF or Word document"""
+    # Query for the template
+    template = db.query(db_models.SLATemplate).filter(
+        db_models.SLATemplate.id == template_id,
+        ((db_models.SLATemplate.user_id == current_user.id) | 
+         (db_models.SLATemplate.is_public == True))
+    ).first()
+    
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    # Generate a filename based on the template name
+    safe_name = template.name.lower().replace(" ", "_").replace("/", "_")
+    
+    if format.lower() == "pdf":
+        # Generate PDF content
+        pdf_content = pdf_generator.generate_sla_pdf(template.__dict__)
+        
+        # Set the response headers for PDF download
+        headers = {
+            'Content-Disposition': f'attachment; filename="{safe_name}.pdf"',
+            'Content-Type': 'application/pdf'
+        }
+        
+        # Return the PDF as base64 string that frontend can decode
+        return {"filename": f"{safe_name}.pdf", "content": pdf_content, "format": "pdf"}
+    
+    elif format.lower() == "docx":
+        # We could implement Word document generation here
+        # For now, return an error
+        raise HTTPException(status_code=400, detail="DOCX format not implemented yet")
+    
+    else:
+        raise HTTPException(status_code=400, detail="Invalid format specified. Supported formats: pdf, docx")

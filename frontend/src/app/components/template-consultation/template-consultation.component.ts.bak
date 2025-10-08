@@ -1,0 +1,909 @@
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Subscription } from 'rxjs';
+import { ConsultationService, TemplateConsultationResponse, TemplateStage, ConsultationTemplate } from '../../services/consultation.service';
+import { TemplateService } from '../../services/template.service';
+import { TemplateProgress } from '../chat-box/chat-box.component';
+import { StructuredOutput, ConsultationSummary } from '../../models/consultation-summary';
+
+interface Message {
+  id?: number;
+  content: string;
+  role: 'user' | 'assistant' | 'system';
+  sessionId?: number;
+  timestamp?: string;
+  stageId?: string;
+}
+
+interface StructuredInputField {
+  id: string;
+  label: string;
+  type: 'text' | 'textarea' | 'select' | 'radio' | 'checkbox';
+  options?: Array<{value: string, label: string}>;
+  value: string | string[];
+  placeholder?: string;
+  required?: boolean;
+  helpText?: string;
+}
+
+@Component({
+  selector: 'app-template-consultation',
+  template: `
+    <div class="template-consultation-container">
+      <!-- Header with Template Info -->
+      <div class="consultation-header">
+        <div class="row align-items-center">
+          <div class="col-md-8">
+            <h2>{{ templateName }}</h2>
+            <p class="text-muted">{{ templateDescription }}</p>
+          </div>
+          <div class="col-md-4 text-md-end">
+            <button class="btn btn-outline-secondary me-2" (click)="backToTemplates()">
+              <i class="bi bi-arrow-left"></i> Back
+            </button>
+            <button class="btn btn-outline-primary" (click)="toggleSidebar()">
+              <i class="bi bi-layout-sidebar"></i> {{ showSidebar ? 'Hide' : 'Show' }} Progress
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Loading State -->
+      <div *ngIf="loading && !error" class="loading-container">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p>Setting up your consultation...</p>
+      </div>
+      
+      <!-- Error State -->
+      <div *ngIf="error" class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle-fill"></i> {{ error }}
+        <button class="btn btn-outline-danger btn-sm ms-3" (click)="backToTemplates()">
+          Return to Templates
+        </button>
+      </div>
+      
+      <!-- Main Content Area -->
+      <div *ngIf="!loading && !error" class="consultation-content">
+        <div class="row">
+          <!-- Sidebar with Stage Progress -->
+          <div *ngIf="showSidebar" class="col-md-3 sidebar-col">
+            <app-template-stage-progress
+              [stages]="templateStages"
+              [currentStage]="currentStageNumber"
+              [allowNavigation]="false"
+              [showDescription]="true">
+            </app-template-stage-progress>
+            
+            <!-- Template Information -->
+            <div class="template-info">
+              <h5>About this Template</h5>
+              <div class="template-detail">
+                <span class="detail-label">Domain:</span>
+                <span class="detail-value">{{ templateDomain }}</span>
+              </div>
+              <div class="template-detail">
+                <span class="detail-label">Tags:</span>
+                <div class="tags-container">
+                  <span *ngFor="let tag of templateTags" class="template-tag">{{ tag }}</span>
+                </div>
+              </div>
+              <div class="template-actions mt-3">
+                <button class="btn btn-sm btn-outline-secondary w-100" (click)="exportConsultation()">
+                  <i class="bi bi-download"></i> Export Results
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Main Chat Area -->
+          <div [ngClass]="showSidebar ? 'col-md-9' : 'col-md-12'" class="chat-col">
+            <!-- Show consultation summary when complete -->
+            <div *ngIf="isConsultationComplete && consultationSummary" class="consultation-summary-container">
+              <div class="summary-header">
+                <h3>
+                  <i class="bi bi-check-circle-fill text-success me-2"></i>
+                  Consultation Complete
+                </h3>
+                <p class="text-muted">
+                  All stages have been completed. Below is a summary of the collected information.
+                </p>
+              </div>
+              
+              <div class="summary-content">
+                <!-- Summary Data -->
+                <div class="card mb-4">
+                  <div class="card-header bg-light">
+                    <h5 class="mb-0">Consultation Summary</h5>
+                  </div>
+                  <div class="card-body">
+                    <div *ngFor="let item of getSummaryItems()" class="summary-item mb-3">
+                      <h6>{{ item.label }}</h6>
+                      <div [ngSwitch]="item.type">
+                        <div *ngSwitchCase="'array'" class="array-value">
+                          <ul class="list-group list-group-flush">
+                            <li *ngFor="let val of item.value" class="list-group-item">{{ val }}</li>
+                          </ul>
+                        </div>
+                        <div *ngSwitchCase="'object'" class="object-value">
+                          <div *ngFor="let key of getObjectKeys(item.value)" class="mb-2">
+                            <strong>{{ key }}:</strong> {{ item.value[key] }}
+                          </div>
+                        </div>
+                        <div *ngSwitchDefault class="simple-value">
+                          {{ item.value }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Collected Data by Stage -->
+                <div class="card">
+                  <div class="card-header bg-light">
+                    <h5 class="mb-0">Collected Data by Stage</h5>
+                  </div>
+                  <div class="card-body p-0">
+                    <div class="accordion" id="stageDataAccordion">
+                      <div *ngFor="let output of consultationSummary.outputs; let i = index" class="accordion-item">
+                        <h2 class="accordion-header">
+                          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" [attr.data-bs-target]="'#stageCollapse' + i">
+                            {{ output.stageName }} (Stage {{ output.stageNumber }})
+                          </button>
+                        </h2>
+                        <div [id]="'stageCollapse' + i" class="accordion-collapse collapse">
+                          <div class="accordion-body">
+                            <div *ngFor="let key of getObjectKeys(output.data)" class="mb-2">
+                              <strong>{{ key }}:</strong> {{ output.data[key] | json }}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Export Controls -->
+                <div class="export-controls mt-4 text-end">
+                  <button class="btn btn-primary me-2" (click)="exportConsultation()">
+                    <i class="bi bi-file-earmark-pdf me-2"></i>
+                    Export Results
+                  </button>
+                  <button class="btn btn-outline-secondary" (click)="startNewConsultation()">
+                    <i class="bi bi-plus-circle me-2"></i>
+                    Start New Consultation
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Chat Interface (hidden when consultation is complete) -->
+            <app-chat-box *ngIf="!isConsultationComplete"
+              [messages]="messages"
+              [loading]="messageLoading"
+              [templateMode]="true"
+              [templateProgress]="templateProgress"
+              [structuredInputFields]="structuredInputFields"
+              [structuredInputPrompt]="structuredInputPrompt"
+              [showTextInput]="!structuredInputFields || structuredInputFields.length === 0"
+              (messageSent)="sendMessage($event)"
+              (structuredInputSubmitted)="submitStructuredInput($event)">
+            </app-chat-box>
+          </div>
+        </div>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .template-consultation-container {
+      padding: 20px;
+    }
+    
+    .consultation-header {
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #dee2e6;
+      animation: fadeIn 0.5s ease;
+    }
+    
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 0;
+      animation: pulse 2s infinite;
+    }
+    
+    .loading-container p {
+      margin-top: 15px;
+      color: #6c757d;
+      animation: fadeIn 1s ease;
+    }
+    
+    .consultation-content {
+      display: flex;
+      flex-direction: column;
+      animation: slideIn 0.5s ease;
+    }
+    
+    .sidebar-col {
+      margin-bottom: 20px;
+      transition: all 0.3s ease;
+    }
+    
+    .chat-col {
+      margin-bottom: 20px;
+      transition: all 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    
+    @keyframes pulse {
+      0% { opacity: 0.8; }
+      50% { opacity: 1; }
+      100% { opacity: 0.8; }
+    }
+    
+    /* Stage transition notification */
+    :host ::ng-deep .stage-transition-notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: var(--primary);
+      color: white;
+      padding: 15px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 1050;
+      transform: translateX(120%);
+      transition: transform 0.4s ease;
+      max-width: 350px;
+    }
+    
+    :host ::ng-deep .stage-transition-notification.show {
+      transform: translateX(0);
+    }
+    
+    /* Structured input animations */
+    :host ::ng-deep .structured-input-container.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    /* Consultation Summary Styles */
+    .consultation-summary-container {
+      animation: slideIn 0.5s ease;
+    }
+    
+    .summary-header {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid #dee2e6;
+    }
+    
+    .summary-content {
+      margin-bottom: 2rem;
+    }
+    
+    .summary-item {
+      padding: 0.5rem 0;
+    }
+    
+    .summary-item h6 {
+      color: #495057;
+      margin-bottom: 0.5rem;
+    }
+    
+    .array-value, .object-value, .simple-value {
+      background-color: #f8f9fa;
+      padding: 0.75rem;
+      border-radius: 4px;
+      font-size: 0.95rem;
+    }
+    
+    .export-controls {
+      margin-top: 2rem;
+    }
+    
+    /* Message transition animations */
+    :host ::ng-deep .message.system {
+      background-color: rgba(var(--info-rgb), 0.1);
+      border-left: 3px solid var(--info);
+      font-style: italic;
+      padding: 12px 15px;
+      margin: 10px 0;
+      border-radius: 4px;
+      animation: flashMessage 1.5s ease;
+    }
+  `]
+})
+    
+    @keyframes flashMessage {
+      0% { background-color: rgba(var(--info-rgb), 0.3); }
+      100% { background-color: rgba(var(--info-rgb), 0.1); }
+    }
+    }
+    
+    .template-info {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 20px;
+    }
+    
+    .template-info h5 {
+      font-size: 1rem;
+      margin-bottom: 15px;
+      color: #495057;
+    }
+    
+    .template-detail {
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+    }
+    
+    .detail-label {
+      font-weight: 500;
+      color: #6c757d;
+      margin-right: 5px;
+    }
+    
+    .detail-value {
+      color: #495057;
+    }
+    
+    .tags-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 5px;
+    }
+    
+    .template-tag {
+      font-size: 0.75rem;
+      background-color: #e9ecef;
+      color: #495057;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    
+    @media (min-width: 768px) {
+      .consultation-content {
+        flex-direction: row;
+      }
+      
+      .sidebar-col {
+        padding-right: 20px;
+      }
+    }
+  `]
+})
+export class TemplateConsultationComponent implements OnInit, OnDestroy {
+  sessionId?: number;
+  templateId?: string;
+  templateName = 'Template Consultation';
+  templateDescription = 'Loading consultation...';
+  templateDomain = '';
+  templateTags: string[] = [];
+  templateStages: TemplateStage[] = [];
+  
+  messages: Message[] = [];
+  loading = true;
+  messageLoading = false;
+  
+  // Structured output collection
+  structuredOutputs: StructuredOutput[] = [];
+  consultationSummary: ConsultationSummary | null = null;
+  isConsultationComplete = false;
+  error = '';
+  
+  currentStageId?: string;
+  currentStageNumber = 1;
+  templateProgress: TemplateProgress | null = null;
+  
+  structuredInputFields: StructuredInputField[] | null = null;
+  structuredInputPrompt?: string;
+  
+  showSidebar = true;
+  
+  private subscriptions: Subscription[] = [];
+  
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private consultationService: ConsultationService,
+    private templateService: TemplateService
+  ) {}
+  
+  ngOnInit(): void {
+    // Initialize the consultation start time
+    const startTime = new Date();
+    
+    this.subscriptions.push(
+      this.route.paramMap.subscribe(params => {
+        const sessionId = params.get('sessionId');
+        
+        if (sessionId) {
+          this.sessionId = +sessionId;
+          this.loadConsultationData();
+        } else {
+          this.error = 'Invalid session ID';
+          this.loading = false;
+        }
+      })
+    );
+    
+    // Set sidebar visibility based on screen size
+    this.showSidebar = window.innerWidth >= 992;
+  }
+  
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+  }
+  
+  loadConsultationData(): void {
+    if (!this.sessionId) return;
+    
+    // First get the session details to get the template ID
+    this.consultationService.getSession(this.sessionId).subscribe({
+      next: (session) => {
+        if (session.template_id) {
+          this.templateId = session.template_id;
+          this.loadTemplateDetails();
+          this.loadSessionMessages();
+        } else {
+          this.error = 'This is not a template-based consultation session';
+          this.loading = false;
+        }
+      },
+      error: (err) => {
+        console.error('Error loading session:', err);
+        this.error = 'Failed to load consultation session';
+        this.loading = false;
+      }
+    });
+  }
+  
+  loadTemplateDetails(): void {
+    if (!this.templateId) return;
+    
+    this.templateService.getConsultationTemplate(this.templateId).subscribe({
+      next: (template) => {
+        this.setupTemplateDetails(template);
+      },
+      error: (err) => {
+        console.error('Error loading template details:', err);
+        // Non-critical error, continue without template details
+      }
+    });
+  }
+  
+  setupTemplateDetails(template: ConsultationTemplate): void {
+    this.templateName = template.name;
+    this.templateDescription = template.description;
+    this.templateDomain = template.domain;
+    this.templateTags = template.tags;
+    this.templateStages = template.stages;
+    
+    // Initialize consultation summary
+    this.consultationSummary = {
+      templateId: template.id,
+      templateName: template.name,
+      outputs: [],
+      startTime: new Date(),
+      completed: false,
+      sessionId: this.sessionId
+    };
+  }
+  
+  loadSessionMessages(): void {
+    if (!this.sessionId) return;
+    
+    this.consultationService.getSessionMessages(this.sessionId).subscribe({
+      next: (messages) => {
+        this.messages = messages;
+        this.loadTemplateProgress();
+      },
+      error: (err) => {
+        console.error('Error loading messages:', err);
+        this.error = 'Failed to load consultation messages';
+        this.loading = false;
+      }
+    });
+  }
+  
+  loadTemplateProgress(): void {
+    if (!this.sessionId) return;
+    
+    this.consultationService.getTemplateProgress(this.sessionId).subscribe({
+      next: (progress) => {
+        this.updateTemplateProgress(progress);
+        this.loading = false;
+      },
+      error: (err) => {
+        console.error('Error loading template progress:', err);
+        this.error = 'Failed to load consultation progress';
+        this.loading = false;
+      }
+    });
+  }
+  
+  updateTemplateProgress(progress: any): void {
+    if (!progress) return;
+    
+    // Check if we're transitioning to a new stage
+    const isStageChange = this.currentStageId !== progress.stage_id;
+    
+    // Store previous stage for animation
+    const previousStage = this.currentStageNumber;
+    
+    this.currentStageId = progress.stage_id;
+    this.currentStageNumber = progress.current_stage;
+    
+    this.templateProgress = {
+      currentStage: progress.current_stage,
+      totalStages: progress.total_stages,
+      stageName: progress.stage_name,
+      stageDescription: progress.stage_description,
+      progressPercentage: progress.progress_percentage,
+      stageId: progress.stage_id,
+      completedStages: progress.completed_stages
+    };
+    
+    // Visual feedback for stage transitions
+    if (isStageChange && previousStage > 0) {
+      this.showStageTransitionMessage(previousStage, progress.current_stage);
+    }
+    
+    // Check if there are structured input fields for this stage
+    if (progress.ui_components?.structured_input) {
+      const inputConfig = progress.ui_components.structured_input;
+      
+      this.structuredInputPrompt = inputConfig.prompt;
+      this.structuredInputFields = inputConfig.fields.map((field: any) => ({
+        id: field.id,
+        label: field.label,
+        type: field.type,
+        options: field.options,
+        value: field.type === 'checkbox' ? [] : '',
+        placeholder: field.placeholder,
+        required: field.required,
+        helpText: field.help_text
+      }));
+      
+      // Animate the structured input appearance
+      setTimeout(() => {
+        const inputContainer = document.querySelector('.structured-input-container');
+        if (inputContainer) {
+          inputContainer.classList.add('animate-in');
+        }
+      }, 100);
+    } else {
+      this.structuredInputFields = null;
+      this.structuredInputPrompt = undefined;
+    }
+    
+    // Scroll to the latest message
+    setTimeout(() => {
+      const chatContainer = document.querySelector('.chat-messages');
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
+    }, 100);
+  }
+  
+  showStageTransitionMessage(fromStage: number, toStage: number): void {
+    // Add a system message for stage transition
+    const fromStageName = this.templateStages[fromStage - 1]?.name || `Stage ${fromStage}`;
+    const toStageName = this.templateStages[toStage - 1]?.name || `Stage ${toStage}`;
+    
+    this.messages.push({
+      role: 'system',
+      content: `✅ Completed: "${fromStageName}"\n\n▶️ Starting: "${toStageName}"`,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Show a visual notification
+    this.showNotification(`Moving to stage ${toStage}: ${toStageName}`);
+  }
+  
+  showNotification(message: string): void {
+    // Create and add a notification element
+    const notification = document.createElement('div');
+    notification.className = 'stage-transition-notification';
+    notification.innerHTML = `<div class="notification-content">${message}</div>`;
+    
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+      notification.classList.add('show');
+    }, 100);
+    
+    // Remove after animation
+    setTimeout(() => {
+      notification.classList.remove('show');
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 500);
+    }, 3000);
+  }
+  
+  sendMessage(message: string): void {
+    if (!this.sessionId) return;
+    
+    this.messageLoading = true;
+    
+    this.consultationService.sendTemplateMessage(message, this.sessionId).subscribe({
+      next: (response) => {
+        // Add user message
+        this.messages.push({
+          content: message,
+          role: 'user',
+          stageId: this.currentStageId
+        });
+        
+        // Add assistant response
+        this.messages.push(response.message);
+        
+        // Update template progress
+        this.updateTemplateProgress(response.template_progress);
+        
+        this.messageLoading = false;
+      },
+      error: (err) => {
+        console.error('Error sending message:', err);
+        this.error = 'Failed to send message';
+        this.messageLoading = false;
+      }
+    });
+  }
+  
+  submitStructuredInput(data: Record<string, any>): void {
+    if (!this.sessionId) return;
+    
+    this.messageLoading = true;
+    
+    // First add user message with structured data
+    const structuredDataMessage = this.formatStructuredDataForDisplay(data);
+    this.messages.push({
+      content: structuredDataMessage,
+      role: 'user',
+      stageId: this.currentStageId
+    });
+    
+    // Store structured output data
+    if (this.currentStageId) {
+      const currentStage = this.templateStages.find(stage => stage.id === this.currentStageId);
+      if (currentStage) {
+        const structuredOutput: StructuredOutput = {
+          stageId: this.currentStageId,
+          stageName: currentStage.name,
+          stageNumber: this.currentStageNumber,
+          data: { ...data }, // Clone data to avoid reference issues
+          timestamp: new Date()
+        };
+        
+        // Save to our structured outputs array
+        this.structuredOutputs.push(structuredOutput);
+        
+        // Add to consultation summary if it exists
+        if (this.consultationSummary) {
+          this.consultationSummary.outputs.push(structuredOutput);
+        }
+      }
+    }
+    
+    this.consultationService.submitStructuredInput(data, this.sessionId).subscribe({
+      next: (response) => {
+        // Add assistant response
+        this.messages.push(response.message);
+        
+        // Update template progress
+        this.updateTemplateProgress(response.template_progress);
+        
+        // Check if consultation is complete
+        if (response.template_progress?.current_stage > this.templateStages.length || 
+            (this.currentStageNumber >= this.templateStages.length)) {
+          this.finalizeConsultation();
+        }
+        
+        this.messageLoading = false;
+      },
+      error: (err) => {
+        console.error('Error submitting structured data:', err);
+        this.error = 'Failed to submit data';
+        this.messageLoading = false;
+      }
+    });
+  }
+  
+  formatStructuredDataForDisplay(data: Record<string, any>): string {
+    // Create a readable representation of the structured data
+    let formattedContent = '**Submitted Information:**\n';
+    
+    for (const [key, value] of Object.entries(data)) {
+      const field = this.structuredInputFields?.find(f => f.id === key);
+      const label = field?.label || key;
+      
+      formattedContent += `- **${label}:** ${value}\n`;
+    }
+    
+    return formattedContent;
+  }
+  
+  toggleSidebar(): void {
+    this.showSidebar = !this.showSidebar;
+  }
+  
+  backToTemplates(): void {
+    this.router.navigate(['/templates']);
+  }
+  /**
+   * Finalizes the consultation when all stages are complete
+   * Generates summary and prepares for export
+   */
+  finalizeConsultation(): void {
+    console.log('Finalizing consultation');
+    
+    // Make sure we have a consultation summary
+    if (!this.consultationSummary) {
+      this.consultationSummary = {
+        consultationId: this.sessionId!,
+        sessionId: this.sessionId,
+        templateId: this.templateId!,
+        templateName: this.templateName,
+        completedAt: new Date(),
+        completed: true,
+        outputs: [...this.structuredOutputs], // Copy all collected outputs
+        summary: {} // This will be filled with summary data
+      };
+    } else {
+      // Update completion time
+      this.consultationSummary.completedAt = new Date();
+      this.consultationSummary.completed = true;
+      // Ensure all outputs are included
+      this.consultationSummary.outputs = [...this.structuredOutputs];
+    }
+    
+    // Generate summary data based on collected outputs
+    this.generateConsultationSummary();
+    
+    // Show completion notification
+    this.showConsultationCompleteNotification();
+    
+    // Mark consultation as completed
+    this.isConsultationComplete = true;
+  }
+  
+  /**
+   * Generate a summary of all collected outputs from the consultation
+   * This organizes the structured data into a cohesive summary
+   */
+  generateConsultationSummary(): void {
+    if (!this.consultationSummary) return;
+    
+    // Initialize summary object
+    const summary: Record<string, any> = {};
+    
+    // Process all structured outputs and organize by categories
+    this.structuredOutputs.forEach(output => {
+      // Extract key information based on stage type or data structure
+      // This logic will depend on your specific template structure
+      Object.entries(output.data).forEach(([key, value]) => {
+        // Group similar data across stages
+        if (!summary[key]) {
+          summary[key] = value;
+        } else if (Array.isArray(summary[key])) {
+          // If it's already an array, append
+          if (Array.isArray(value)) {
+            summary[key] = [...summary[key], ...value];
+          } else {
+            summary[key].push(value);
+          }
+        } else {
+          // Convert to array if we have multiple values
+          summary[key] = [summary[key], value];
+        }
+      });
+    });
+    
+    // Save the generated summary
+    this.consultationSummary.summary = summary;
+    console.log('Generated consultation summary:', summary);
+  }
+  
+  /**
+   * Show a notification that the consultation is complete
+   */
+  showConsultationCompleteNotification(): void {
+    // Create a notification element
+    const notification = document.createElement('div');
+    notification.className = 'stage-transition-notification consultation-complete';
+    notification.innerHTML = `
+      <div class="notification-title">
+        <i class="bi bi-check-circle-fill me-2"></i>
+        Consultation Complete
+      </div>
+      <div class="notification-content">
+        All stages have been completed. You can now export your results.
+      </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Show notification
+    setTimeout(() => {
+      notification.classList.add('show');
+    }, 100);
+    
+    // Hide and remove after delay
+    setTimeout(() => {
+      notification.classList.remove('show');
+      setTimeout(() => {
+        document.body.removeChild(notification);
+      }, 400);
+    }, 5000);
+  }
+  
+  /**
+   * Gets the summary items in a format suitable for display
+   */
+  getSummaryItems() {
+    if (!this.consultationSummary?.summary) return [];
+    
+    return Object.entries(this.consultationSummary.summary).map(([key, value]) => {
+      // Format the key for display (capitalize, replace underscores)
+      const label = key.replace(/_/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+      
+      // Determine the type of value
+      let type = 'string';
+      if (Array.isArray(value)) {
+        type = 'array';
+      } else if (typeof value === 'object' && value !== null) {
+        type = 'object';
+      }
+      
+      return { label, value, type };
+    });
+  }
+  
+  /**
+   * Gets keys from an object for template iteration
+   */
+  getObjectKeys(obj: any): string[] {
+    return obj ? Object.keys(obj) : [];
+  }
+  
+  /**
+   * Start a new consultation using the same template
+   */
+  startNewConsultation() {
+    // Navigate to the same template but reset everything
+    if (this.templateId) {
+      this.router.navigate(['/templates', this.templateId]);
+    }
+  }
+  
+  exportConsultation() {
+    if (!this.sessionId) return;
+    
+    // TODO: Implement export functionality
+    console.log('Exporting consultation results for session:', this.sessionId);
+    
+    // This would typically call a service method to generate and download
+    // a PDF or other document format with the consultation results
+  }
+}

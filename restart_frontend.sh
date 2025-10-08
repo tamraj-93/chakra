@@ -17,6 +17,10 @@ cd /home/nilabh/Projects/chakra/frontend
 pkill -f "ng serve" || echo "No Angular process found to kill"
 sleep 2
 
+# Build Angular to include our new code
+echo -e "${YELLOW}Building Angular frontend with new healthcare template support...${NC}"
+ng build --configuration=development
+
 # Start Angular in the background
 echo -e "${YELLOW}Starting Angular frontend...${NC}"
 ng serve --port 4200 &

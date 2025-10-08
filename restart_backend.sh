@@ -61,6 +61,22 @@ sleep 3
 # Check if server is running
 if curl -s http://localhost:8000/health > /dev/null; then
     echo -e "${GREEN}✓ Server is running and healthy${NC}"
+    
+    # Run the API test script if available
+    if [ -f "./test_api_endpoints.sh" ]; then
+        echo -e "${YELLOW}Would you like to run the API test script to verify endpoints? (y/n)${NC}"
+        read -r run_tests
+        if [[ "$run_tests" =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}Running API tests...${NC}"
+            ./test_api_endpoints.sh
+        fi
+    fi
+    
+    echo -e "${BLUE}API endpoints available:${NC}"
+    echo -e "${GREEN}- Authentication: /api/auth/login, /api/auth/register${NC}"
+    echo -e "${GREEN}- SLA Templates: /api/templates${NC}"
+    echo -e "${GREEN}- Consultation Templates: /api/consultation_templates/templates${NC}"
+    echo -e "${GREEN}- Consultation: /api/consultation/chat, /api/consultation/sessions${NC}"
 else
     echo -e "${RED}✗ Server failed to start properly${NC}"
 fi

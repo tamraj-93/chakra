@@ -1,0 +1,312 @@
+{
+  "name": "Healthcare EHR Hosting SLA",
+  "description": "A template to guide healthcare providers through creating SLAs for EHR hosting services",
+  "domain": "Healthcare",
+  "version": "1.0",
+  "tags": ["healthcare", "EHR", "cloud hosting", "HIPAA", "medical data"],
+  "initial_system_prompt": "You are Chakra, an AI assistant specializing in healthcare SLAs. Your goal is to help healthcare providers create comprehensive service level agreements for Electronic Health Record (EHR) hosting services. Follow each stage carefully and guide the user through the process, ensuring HIPAA compliance and addressing healthcare-specific requirements.",
+  "stages": [
+    {
+      "name": "Service Scope Definition",
+      "description": "Define the EHR services covered by the SLA",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's start by defining the scope of your Electronic Health Record (EHR) hosting services. What specific EHR modules and functionalities will be covered under this SLA? (For example: patient records, appointment scheduling, e-prescribing, clinical decision support, medical imaging, etc.)",
+      "system_instructions": "Help the user identify all key EHR components that need to be covered. Ask about specific healthcare workflows, data types, and regulatory requirements. Ensure critical components like clinical decision support, medication management, and emergency access are addressed.",
+      "expected_outputs": [
+        {
+          "name": "ehr_modules",
+          "description": "List of EHR modules covered by the SLA",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "patient_data_types",
+          "description": "Types of patient data being stored and processed",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "facility_coverage",
+          "description": "Healthcare facilities using this EHR system",
+          "data_type": "list",
+          "required": true
+        }
+      ],
+      "ui_components": {},
+      "next_stage_conditions": {
+        "default": "Availability Requirements"
+      }
+    },
+    {
+      "name": "Availability Requirements",
+      "description": "Define uptime and availability requirements for EHR services",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define the availability requirements for your EHR system. Healthcare typically requires higher standards than other industries. What uptime percentage do you require? Are there critical modules that need higher availability? How should maintenance windows be scheduled to minimize disruption to patient care?",
+      "system_instructions": "Guide the user to set appropriate availability metrics for healthcare. Suggest 99.95% or higher for critical clinical functions. Remind them of the impact of downtime in clinical settings and recommend appropriate maintenance windows (typically late night/early morning).",
+      "expected_outputs": [
+        {
+          "name": "uptime_percentage",
+          "description": "Required uptime percentage for EHR system",
+          "data_type": "number",
+          "required": true
+        },
+        {
+          "name": "critical_module_availability",
+          "description": "Special availability requirements for critical modules",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "maintenance_windows",
+          "description": "Scheduled maintenance periods",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "downtime_notification",
+          "description": "Required advance notice for scheduled downtime",
+          "data_type": "string",
+          "required": true
+        }
+      ],
+      "ui_components": {},
+      "next_stage_conditions": {
+        "default": "Performance Metrics"
+      }
+    },
+    {
+      "name": "Performance Metrics",
+      "description": "Define performance standards for healthcare workflows",
+      "stage_type": "information_gathering",
+      "prompt_template": "Now, let's define performance metrics for your EHR system. In healthcare settings, fast response times are crucial for patient care. What response time requirements do you have for different clinical workflows? (Examples: chart access, order entry, medication administration, PACS image retrieval)",
+      "system_instructions": "Guide the user to define healthcare-appropriate response times. Suggest sub-second response for critical clinical functions like medication administration. Discuss requirements for image loading times, report generation, and clinical decision support alerts.",
+      "expected_outputs": [
+        {
+          "name": "chart_access_time",
+          "description": "Maximum time to retrieve patient charts",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "order_entry_time",
+          "description": "Maximum time to process clinical orders",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "image_retrieval_time",
+          "description": "Maximum time to retrieve medical images",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "concurrent_users",
+          "description": "Maximum number of concurrent users supported",
+          "data_type": "number",
+          "required": true
+        }
+      ],
+      "ui_components": {},
+      "next_stage_conditions": {
+        "default": "HIPAA Compliance"
+      }
+    },
+    {
+      "name": "HIPAA Compliance",
+      "description": "Define HIPAA compliance requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's address HIPAA compliance requirements for your EHR hosting. What specific security controls, audit capabilities, and breach notification procedures do you require to ensure HIPAA compliance?",
+      "system_instructions": "Guide the user through comprehensive HIPAA requirements. Cover encryption standards, access controls, audit logging, breach notification timelines, and Business Associate Agreement provisions. Reference specific HIPAA Security Rule requirements.",
+      "expected_outputs": [
+        {
+          "name": "encryption_standards",
+          "description": "Required encryption standards for PHI",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "access_controls",
+          "description": "Access control requirements",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "audit_logging",
+          "description": "Audit logging requirements",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "breach_notification",
+          "description": "Required breach notification procedure and timeline",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "baa_requirements",
+          "description": "Business Associate Agreement requirements",
+          "data_type": "list",
+          "required": true
+        }
+      ],
+      "ui_components": {},
+      "next_stage_conditions": {
+        "default": "Disaster Recovery"
+      }
+    },
+    {
+      "name": "Disaster Recovery",
+      "description": "Define disaster recovery and business continuity requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define disaster recovery requirements for your EHR system. In healthcare, rapid recovery is essential. What Recovery Time Objectives (RTO) and Recovery Point Objectives (RPO) do you require? What contingency access methods are needed during system outages?",
+      "system_instructions": "Guide the user to define appropriate disaster recovery metrics for healthcare. Suggest RTOs of 2-4 hours or less for full recovery, and RPOs measured in minutes. Discuss emergency access procedures, offline chart access, and downtime documentation processes.",
+      "expected_outputs": [
+        {
+          "name": "recovery_time_objective",
+          "description": "Maximum acceptable time to restore service after disaster",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "recovery_point_objective",
+          "description": "Maximum acceptable data loss period",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "backup_frequency",
+          "description": "Required backup frequency",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "emergency_access",
+          "description": "Provisions for emergency access during outages",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "testing_frequency",
+          "description": "Required frequency of disaster recovery testing",
+          "data_type": "string",
+          "required": true
+        }
+      ],
+      "ui_components": {},
+      "next_stage_conditions": {
+        "default": "Support and Resolution"
+      }
+    },
+    {
+      "name": "Support and Resolution",
+      "description": "Define support levels and issue resolution timeframes",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define support levels and response times for your EHR system. Given the critical nature of healthcare operations, what support hours and response times do you require for different issue severities?",
+      "system_instructions": "Guide the user to define healthcare-appropriate support levels. Recommend 24/7 support for clinical systems with tiered response times based on issue severity. Discuss the need for clinician-facing support versus technical support.",
+      "expected_outputs": [
+        {
+          "name": "support_hours",
+          "description": "Hours when support is available",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "severity_levels",
+          "description": "Issue severity classification",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "response_times",
+          "description": "Maximum response times by severity",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "resolution_times",
+          "description": "Target resolution times by severity",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "escalation_path",
+          "description": "Escalation procedure for unresolved issues",
+          "data_type": "object",
+          "required": true
+        }
+      ],
+      "ui_components": {},
+      "next_stage_conditions": {
+        "default": "Penalties and Remediation"
+      }
+    },
+    {
+      "name": "Penalties and Remediation",
+      "description": "Define penalties for SLA violations",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define penalties and remediation for SLA violations. In healthcare, service failures can have significant consequences. What penalties or service credits should apply for different types of SLA violations?",
+      "system_instructions": "Guide the user to define appropriate penalties that reflect the critical nature of healthcare services. Discuss tiered service credits based on severity and duration of violations. Include provisions for root cause analysis and corrective action plans.",
+      "expected_outputs": [
+        {
+          "name": "service_credits",
+          "description": "Service credits for different types of violations",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "reporting_requirements",
+          "description": "SLA violation reporting requirements",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "corrective_action",
+          "description": "Required corrective action process",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "termination_clauses",
+          "description": "Conditions allowing for agreement termination",
+          "data_type": "list",
+          "required": true
+        }
+      ],
+      "ui_components": {},
+      "next_stage_conditions": {
+        "default": "Healthcare SLA Summary"
+      }
+    },
+    {
+      "name": "Healthcare SLA Summary",
+      "description": "Summarize the healthcare EHR SLA",
+      "stage_type": "summary",
+      "prompt_template": "Based on our discussion, I'll now summarize the Healthcare EHR Hosting SLA requirements we've gathered. Please review and let me know if anything needs to be adjusted.",
+      "system_instructions": "Provide a comprehensive summary of all healthcare-specific SLA requirements. Organize the summary in a clear, structured format highlighting HIPAA compliance aspects, clinical workflow performance metrics, and patient care impacts. Include references to relevant healthcare regulations.",
+      "expected_outputs": [
+        {
+          "name": "healthcare_sla_summary",
+          "description": "Complete summary of healthcare EHR SLA requirements",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "compliance_checklist",
+          "description": "Checklist of compliance requirements addressed",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "next_steps",
+          "description": "Recommended next steps to finalize the SLA",
+          "data_type": "list",
+          "required": true
+        }
+      ],
+      "ui_components": {},
+      "next_stage_conditions": {
+        "default": "end"
+      }
+    }
+  ]
+}

@@ -96,9 +96,12 @@ Follow these steps to test the complete end-to-end flow of the healthcare RAG in
 ### 3. Complete the Consultation
 
 1. Continue asking all recommended questions listed in the documentation
-2. The "Complete Consultation" button is always visible at the bottom right of the chat interface for easy demo access
-3. Click the "Complete Consultation" button when you feel you've gathered enough information
-4. Confirm when prompted "Are you ready to complete this consultation?"
+2. The "Complete Consultation" button is available in multiple locations:
+   - At the top of the page in a highlighted info banner
+   - As a large green floating button in the bottom right corner
+3. After your first question, you'll see a message prompting you to complete the consultation
+4. Click any "Complete Consultation" button when you feel you've gathered enough information
+5. Confirm when prompted "Are you ready to complete this consultation?"
 5. You'll see a summary of all collected information
 6. Click "Export Results"
    - An alert will appear confirming "SLA document has been generated! Redirecting to My SLAs page."

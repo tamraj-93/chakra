@@ -77,6 +77,19 @@ interface ExtractedTemplateData {
         </div>
       </div>
       
+      <!-- HACKATHON DEMO: Complete Consultation Button - TOP LEVEL, ALWAYS VISIBLE -->
+      <div *ngIf="!isConsultationComplete && !loading && !error" 
+           class="alert alert-info d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <strong>🚀 Hackathon Demo:</strong> 
+          Click the button to complete this consultation at any time.
+        </div>
+        <button class="btn btn-lg btn-success" 
+                (click)="completeConsultation()">
+          <i class="bi bi-check-circle-fill me-2"></i> Complete Consultation
+        </button>
+      </div>
+      
       <!-- Loading State -->
       <div *ngIf="loading" class="loading-container">
         <div class="spinner-border text-primary" role="status">
@@ -308,6 +321,14 @@ interface ExtractedTemplateData {
                       class="developer-tools-toggle btn btn-sm btn-light border shadow-sm"
                       (click)="showDevPanel = true">
                 <i class="bi bi-gear-fill"></i>
+              </button>
+              
+              <!-- Floating Complete Consultation Button - ALWAYS VISIBLE -->
+              <button *ngIf="!isConsultationComplete" 
+                      class="btn btn-success btn-lg position-fixed bottom-0 end-0 m-4 rounded-circle shadow"
+                      style="z-index: 1050; width: 80px; height: 80px;"
+                      (click)="completeConsultation()">
+                <i class="bi bi-check-circle-fill fs-1"></i>
               </button>
             </div>
           </div>
@@ -1347,17 +1368,17 @@ export class TemplateConsultationComponent implements OnInit, OnDestroy {
         });
       },
       complete: () => {
-        // Show helper message after just 3 questions to remind user about completion
+        // Show helper message immediately after the first question to remind user about completion
         // Perfect for hackathon demos where you need to show the complete flow quickly
-        if (this.messages.length === 3) {
+        if (this.messages.length === 1 || this.messages.length === 2) {
           setTimeout(() => {
             this.messages.push({
               role: 'system',
-              content: 'ℹ️ You can continue asking questions or click "Complete Consultation" button when you feel you have enough information for your SLA.',
+              content: '✅ DEMO MODE: You can click the "Complete Consultation" button at the top of the page to finish this consultation and generate your SLA document.',
               timestamp: new Date().toISOString(),
               stageId: this.currentStageId
             });
-          }, 2000);
+          }, 1000);
         }
       }
     });

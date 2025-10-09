@@ -4,6 +4,13 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 // Define interfaces locally
+interface SourceCitation {
+  title: string;
+  source: string;
+  relevance?: number;
+  content_snippet?: string;
+}
+
 interface Message {
   id?: number;
   content: string;
@@ -11,6 +18,7 @@ interface Message {
   sessionId?: number;
   timestamp?: string;
   stageId?: string;
+  sources?: SourceCitation[];  // Add sources field for RAG citations
 }
 
 interface ConsultationSession {
@@ -64,6 +72,7 @@ export interface ConsultationTemplate {
 export interface TemplateConsultationResponse {
   message: Message;
   session_id: number;
+  sources?: SourceCitation[];  // Add support for RAG citation sources
   template_progress: {
     // Support the new API response format
     completed_stage?: string;

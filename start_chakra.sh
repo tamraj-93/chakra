@@ -103,6 +103,25 @@ echo "Initializing healthcare templates..."
 $PYTHON_CMD ./scripts/init_healthcare_templates.py
 echo "✓ Healthcare templates initialized"
 
+# Initialize RAG system with optimized memory usage
+echo "Checking system memory capacity..."
+FREE_MEM=$(free -m | awk 'NR==2{printf "%.1f", $7/1024}')
+TOTAL_MEM=$(free -m | awk 'NR==2{printf "%.1f", ($3+$4+$7)/1024}')
+echo "System memory: ${TOTAL_MEM}GB total, ${FREE_MEM}GB free"
+
+if (( $(echo "$FREE_MEM < 2.0" | bc -l) )); then
+    echo "Low memory detected, using minimal RAG mode..."
+    $PYTHON_CMD ./scripts/init_rag_system.py --minimal
+elif (( $(echo "$FREE_MEM < 4.0" | bc -l) )); then
+    echo "Limited memory detected, using lightweight RAG mode..."
+    $PYTHON_CMD ./scripts/init_rag_system.py --lightweight
+else
+    echo "Initializing RAG system for healthcare documents..."
+    $PYTHON_CMD ./scripts/init_rag_system.py --lightweight
+fi
+
+echo "✓ RAG system initialized"
+
 # Start the backend server with optimized settings
 echo "Starting FastAPI backend on http://localhost:8000"
 if [ "$PRODUCTION_MODE" = true ]; then

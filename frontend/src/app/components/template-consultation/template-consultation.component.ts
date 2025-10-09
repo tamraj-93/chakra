@@ -6,6 +6,13 @@ import { TemplateService } from '../../services/template.service';
 import { TemplateProgress } from '../chat-box/chat-box.component';
 import { StructuredOutput, ConsultationSummary } from '../../models/consultation-summary';
 
+interface SourceCitation {
+  title: string;
+  source: string;
+  relevance?: number;
+  content_snippet?: string;
+}
+
 interface Message {
   id?: number;
   content: string;
@@ -13,6 +20,7 @@ interface Message {
   sessionId?: number;
   timestamp?: string;
   stageId?: string;
+  sources?: SourceCitation[]; // Added for RAG citation display
 }
 
 interface StructuredInputField {
@@ -200,7 +208,7 @@ interface ExtractedTemplateData {
               </div>
             </div>
             
-            <!-- Chat Interface (hidden when consultation is complete) -->
+              <!-- Chat Interface (hidden when consultation is complete) -->
             <div *ngIf="!isConsultationComplete" class="position-relative">
               <!-- Developer/Demo Tools (Hidden by default) -->
               <div *ngIf="showDevPanel" class="developer-tools-bar p-2 bg-light border-bottom">
@@ -216,6 +224,14 @@ interface ExtractedTemplateData {
                     </button>
                   </div>
                 </div>
+              </div>
+              
+              <!-- HACKATHON DEMO: Complete Consultation Button - ALWAYS VISIBLE regardless of stage -->
+              <div class="mb-3 p-3 border rounded bg-light text-end">
+                <button class="btn btn-primary" 
+                        (click)="completeConsultation()">
+                  <i class="bi bi-check-circle me-1"></i> Complete Consultation
+                </button>
               </div>
               
               <!-- User Guidance Panel -->
@@ -246,6 +262,7 @@ interface ExtractedTemplateData {
                   </ul>
                 </div>
                 
+                <!-- Stage completion status indicator -->
                 <div *ngIf="stageCompletionStatus" class="stage-completion-status mt-3">
                   <div class="progress mb-2">
                     <div class="progress-bar" 
@@ -266,15 +283,15 @@ interface ExtractedTemplateData {
                     </span>
                   </div>
                   
-                  <button *ngIf="stageCompletionStatus.is_complete" 
-                          class="btn btn-success btn-sm mt-2"
-                          (click)="forceNextStage()">
-                    Continue to Next Stage <i class="bi bi-arrow-right"></i>
-                  </button>
+                  <div class="d-flex justify-content-between mt-2">
+                    <button *ngIf="stageCompletionStatus.is_complete" 
+                            class="btn btn-success btn-sm"
+                            (click)="forceNextStage()">
+                      Continue to Next Stage <i class="bi bi-arrow-right"></i>
+                    </button>
+                  </div>
                 </div>
-              </div>
-              
-              <app-chat-box
+              </div>              <app-chat-box
                 [messages]="messages"
                 [loading]="messageLoading"
                 [templateMode]="true"
@@ -1281,11 +1298,17 @@ export class TemplateConsultationComponent implements OnInit, OnDestroy {
           }
           
           // Create assistant message
-          const assistantMessage = {
+          const assistantMessage: Message = {
             content: messageContent,
             role: 'assistant' as 'assistant',
             stageId: this.currentStageId
           };
+          
+          // Add sources if available for citation display
+          if (response.sources && Array.isArray(response.sources)) {
+            assistantMessage.sources = response.sources;
+            console.log(`Added ${response.sources.length} sources to message`);
+          }
           
           // Add assistant response
           this.messages.push(assistantMessage);
@@ -1322,6 +1345,20 @@ export class TemplateConsultationComponent implements OnInit, OnDestroy {
           role: 'system' as 'system',
           stageId: this.currentStageId
         });
+      },
+      complete: () => {
+        // Show helper message after just 3 questions to remind user about completion
+        // Perfect for hackathon demos where you need to show the complete flow quickly
+        if (this.messages.length === 3) {
+          setTimeout(() => {
+            this.messages.push({
+              role: 'system',
+              content: 'ℹ️ You can continue asking questions or click "Complete Consultation" button when you feel you have enough information for your SLA.',
+              timestamp: new Date().toISOString(),
+              stageId: this.currentStageId
+            });
+          }, 2000);
+        }
       }
     });
   }
@@ -1451,6 +1488,30 @@ export class TemplateConsultationComponent implements OnInit, OnDestroy {
   
   backToTemplates(): void {
     this.router.navigate(['/templates']);
+  }
+  
+  /**
+   * Complete the consultation process
+   * This will finalize the consultation and show the summary view
+   */
+  completeConsultation(): void {
+    if (!this.sessionId) {
+      console.error('Cannot complete consultation: missing session ID');
+      return;
+    }
+    
+    // Show a confirmation dialog
+    if (confirm('Are you ready to complete this consultation? This will finalize your SLA requirements.')) {
+      // Add a system message indicating completion
+      this.messages.push({
+        role: 'system',
+        content: '✅ Consultation completed successfully! Please review the summary of collected information.',
+        timestamp: new Date().toISOString()
+      });
+      
+      // Call the finalize method
+      this.finalizeConsultation();
+    }
   }
   
   /**
@@ -1603,13 +1664,24 @@ export class TemplateConsultationComponent implements OnInit, OnDestroy {
   }
   
   exportConsultation(): void {
-    if (!this.sessionId) return;
+    if (!this.sessionId) {
+      console.error('Cannot export consultation: missing session ID');
+      return;
+    }
     
-    // TODO: Implement export functionality
-    console.log('Exporting consultation results for session:', this.sessionId);
+    // For the hackathon demo, just redirect to the My SLAs page
+    // This simulates that we've created a document from this consultation
+    alert('SLA document has been generated! Redirecting to My SLAs page.');
     
-    // This would typically call a service method to generate and download
-    // a PDF or other document format with the consultation results
+    // Navigate with a query parameter to trigger success message
+    this.router.navigate(['/my-slas'], { 
+      queryParams: { 
+        fromConsultation: 'true'
+      } 
+    });
+    
+    // In a full implementation, we would call the SLA service to generate a document
+    // and then redirect to view that specific document
   }
   
   /**

@@ -3,6 +3,13 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { chatMessageAnimation, typingAnimation } from '../../shared/animations';
 
 // Define the Message interface locally
+interface SourceCitation {
+  title: string;
+  source: string;
+  relevance?: number;
+  content_snippet?: string;
+}
+
 interface Message {
   id?: number;
   content: string;
@@ -10,6 +17,7 @@ interface Message {
   sessionId?: number;
   timestamp?: string;
   stageId?: string; // Added to track which stage a message belongs to
+  sources?: SourceCitation[]; // Added to display RAG citation sources
 }
 
 // Define the template progress interface
@@ -27,8 +35,20 @@ export interface TemplateProgress {
 @Component({
   selector: 'app-chat-box',
   animations: [chatMessageAnimation, typingAnimation],
+  styleUrls: ['./healthcare-styles.css'],
   template: `
     <div class="chat-container">
+      <!-- Healthcare RAG Indicator - Only show if using healthcare RAG -->
+      <div *ngIf="isHealthcareConsultation" class="healthcare-rag-container">
+        <div class="healthcare-rag-badge">
+          <i class="bi bi-bookmark-check-fill"></i> Healthcare Knowledge Enhanced
+        </div>
+        <div class="healthcare-rag-info">
+          <p>This consultation is using specialized healthcare knowledge to provide accurate and compliant recommendations.</p>
+          <p class="small text-muted">Healthcare SLA recommendations include references to industry standards and regulations.</p>
+        </div>
+      </div>
+
       <!-- Template Progress Bar - Only show if in template mode -->
       <div *ngIf="templateMode && templateProgress" class="template-progress-container">
         <div class="stage-info">
@@ -63,13 +83,73 @@ export interface TemplateProgress {
             <div class="stage-marker"></div>
           </div>
           <div class="message-avatar">
-            <div class="avatar-icon" [ngClass]="message.role === 'user' ? 'user-avatar' : 'assistant-avatar'">
-              {{ message.role === 'user' ? 'U' : 'A' }}
+            <div class="avatar-icon" 
+                 [ngClass]="{
+                   'user-avatar': message.role === 'user',
+                   'assistant-avatar': message.role === 'assistant',
+                   'healthcare-avatar': message.role === 'assistant' && isHealthcareConsultation
+                 }">
+              <ng-container *ngIf="message.role === 'user'">U</ng-container>
+              <ng-container *ngIf="message.role === 'assistant' && !isHealthcareConsultation">A</ng-container>
+              <ng-container *ngIf="message.role === 'assistant' && isHealthcareConsultation">
+                <i class="bi bi-heart-pulse"></i>
+              </ng-container>
             </div>
           </div>
           <div class="message-content">
-            <div class="message-sender">{{ message.role === 'user' ? 'You' : 'SLM Assistant' }}</div>
+            <div class="message-sender">
+              {{ message.role === 'user' ? 'You' : (isHealthcareConsultation ? 'Healthcare SLA Assistant' : 'SLA Assistant') }}
+              <span *ngIf="message.role === 'assistant' && isHealthcareConsultation" class="healthcare-badge-small">HIPAA</span>
+            </div>
             <div class="message-text" [innerHTML]="formatMessageContent(message.content)">
+            </div>
+            <!-- Citation Sources Display - Enhanced for healthcare -->
+            <div *ngIf="message.sources && message.sources.length > 0" 
+                 class="message-sources" 
+                 [ngClass]="{'healthcare-sources': isHealthcareConsultation}">
+              <div class="sources-header">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="sources-title" (click)="toggleSourcesVisibility(i)">
+                    <i class="bi" [ngClass]="isSourcesVisible(i) ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
+                    <span *ngIf="!isHealthcareConsultation">Sources ({{ message.sources.length }})</span>
+                    <span *ngIf="isHealthcareConsultation" class="healthcare-sources-header">
+                      <i class="bi bi-journal-medical me-1"></i> Healthcare References ({{ message.sources.length }})
+                    </span>
+                  </div>
+                  <div *ngIf="isHealthcareConsultation" class="sources-help" (click)="toggleSourcesHelp()">
+                    <i class="bi bi-question-circle"></i>
+                  </div>
+                </div>
+                
+                <!-- Healthcare sources help popup -->
+                <div *ngIf="showSourcesHelp && isHealthcareConsultation" class="sources-help-popup">
+                  <h6><i class="bi bi-info-circle me-2"></i>About Healthcare References</h6>
+                  <p>These references are from healthcare industry documentation, SLA templates, and compliance guidelines.</p>
+                  <p>They provide verifiable information about:</p>
+                  <ul>
+                    <li>HIPAA compliance requirements</li>
+                    <li>Healthcare data security standards</li>
+                    <li>Patient privacy protection measures</li>
+                    <li>Healthcare IT best practices</li>
+                  </ul>
+                  <button class="btn btn-sm btn-outline-primary" (click)="toggleSourcesHelp()">Close</button>
+                </div>
+              </div>
+              <div class="sources-list" *ngIf="isSourcesVisible(i)">
+                <div *ngFor="let source of message.sources; let s = index" 
+                     class="source-item"
+                     [ngClass]="{'healthcare-source-item': isHealthcareConsultation}">
+                  <div class="source-title">
+                    <i *ngIf="isHealthcareConsultation" class="bi bi-file-earmark-medical me-2"></i>
+                    {{ source.title || (isHealthcareConsultation ? 'Healthcare Document ' : 'Document ') + (s + 1) }}
+                  </div>
+                  <div class="source-path">{{ source.source }}</div>
+                  <div *ngIf="source.content_snippet" class="source-snippet">
+                    <i class="bi bi-quote me-1"></i>
+                    "{{ source.content_snippet }}"
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="message-time" *ngIf="message.timestamp">
               {{ formatTimestamp(message.timestamp) }}
@@ -78,11 +158,17 @@ export interface TemplateProgress {
         </div>
         <div *ngIf="loading" [@typingAnimation]="'active'" class="message message-assistant">
           <div class="message-avatar">
-            <div class="avatar-icon assistant-avatar">A</div>
+            <div class="avatar-icon" [ngClass]="{'assistant-avatar': !isHealthcareConsultation, 'healthcare-avatar': isHealthcareConsultation}">
+              <ng-container *ngIf="!isHealthcareConsultation">A</ng-container>
+              <ng-container *ngIf="isHealthcareConsultation"><i class="bi bi-heart-pulse"></i></ng-container>
+            </div>
           </div>
           <div class="message-content">
-            <div class="message-sender">SLM Assistant</div>
-            <div class="typing-indicator">
+            <div class="message-sender">
+              {{ isHealthcareConsultation ? 'Healthcare SLA Assistant' : 'SLA Assistant' }}
+              <span *ngIf="isHealthcareConsultation" class="healthcare-badge-small">HIPAA</span>
+            </div>
+            <div class="typing-indicator" [ngClass]="{'healthcare-typing': isHealthcareConsultation}">
               <span></span>
               <span></span>
               <span></span>
@@ -194,6 +280,128 @@ export interface TemplateProgress {
       flex-direction: column;
       height: 600px;
       border: 1px solid var(--border);
+      
+    /* Healthcare RAG UI elements */
+    .healthcare-rag-container {
+      background-color: #EFF6FF;
+      border-left: 4px solid #2563EB;
+      margin-bottom: 12px;
+      padding: 12px;
+      border-radius: 4px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .healthcare-rag-badge {
+      display: inline-flex;
+      align-items: center;
+      background-color: #2563EB;
+      color: white;
+      padding: 5px 12px;
+      border-radius: 50px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+      align-self: flex-start;
+    }
+    
+    .healthcare-rag-badge i {
+      margin-right: 6px;
+    }
+    
+    .healthcare-rag-info {
+      font-size: 0.9rem;
+    }
+    
+    .healthcare-rag-info p {
+      margin-bottom: 4px;
+    }
+    
+    .healthcare-sources {
+      background-color: #F0FDF4;
+      border-left: 3px solid #16A34A;
+    }
+    
+    .healthcare-sources-header {
+      color: #16A34A;
+      font-weight: 600;
+    }
+    
+    .healthcare-source-item {
+      background-color: #F0FDF4;
+      border-left: 2px solid #16A34A;
+    }
+    
+    /* Source help elements */
+    .sources-title {
+      cursor: pointer;
+      flex-grow: 1;
+    }
+    
+    .sources-help {
+      cursor: pointer;
+      color: #64748b;
+      padding: 0 8px;
+      transition: color 0.2s;
+    }
+    
+    .sources-help:hover {
+      color: #2563EB;
+    }
+    
+    .sources-help-popup {
+      background-color: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      padding: 16px;
+      margin-top: 8px;
+      position: relative;
+      z-index: 100;
+    }
+    
+    .sources-help-popup h6 {
+      color: #2563EB;
+      margin-bottom: 12px;
+    }
+    
+    .sources-help-popup p {
+      font-size: 0.9rem;
+      margin-bottom: 8px;
+    }
+    
+    .sources-help-popup ul {
+      padding-left: 20px;
+      margin-bottom: 16px;
+    }
+    
+    .sources-help-popup ul li {
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+    }
+    
+    /* Healthcare-specific UI elements */
+    .healthcare-avatar {
+      background-color: #16A34A !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .healthcare-avatar i {
+      font-size: 0.9rem;
+    }
+    
+    .healthcare-badge-small {
+      background-color: #16A34A;
+      color: white;
+      font-size: 0.65rem;
+      padding: 2px 4px;
+      border-radius: 4px;
+      margin-left: 6px;
+      font-weight: 600;
+      vertical-align: middle;
+    }
       border-radius: 8px;
       background-color: var(--surface);
       box-shadow: 0 4px 6px var(--shadow);
@@ -328,6 +536,64 @@ export interface TemplateProgress {
       color: var(--text-secondary);
       margin-top: 6px;
       text-align: right;
+    }
+    
+    /* Source citation styles */
+    .message-sources {
+      margin-top: 10px;
+      border-top: 1px solid #eaeaea;
+      padding-top: 8px;
+    }
+    
+    .sources-header {
+      font-size: 0.8rem;
+      color: var(--primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 500;
+    }
+    
+    .sources-list {
+      margin-top: 8px;
+      font-size: 0.85rem;
+      background-color: rgba(0,0,0,0.03);
+      padding: 10px;
+      border-radius: 4px;
+    }
+    
+    .source-item {
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px dashed #eaeaea;
+    }
+    
+    .source-item:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    
+    .source-title {
+      font-weight: 600;
+      color: var(--primary);
+    }
+    
+    .source-path {
+      font-size: 0.8rem;
+      color: #666;
+      margin: 2px 0;
+    }
+    
+    .source-snippet {
+      font-style: italic;
+      color: #333;
+      margin-top: 5px;
+      font-size: 0.8rem;
+      background-color: rgba(0,0,0,0.02);
+      padding: 5px;
+      border-left: 3px solid var(--primary);
     }
     
     /* Stage transition styling */
@@ -580,6 +846,11 @@ export interface TemplateProgress {
       border-radius: 16px;
     }
     
+    .typing-indicator.healthcare-typing {
+      background-color: #ECFDF5;
+      border: 1px solid #D1FAE5;
+    }
+    
     .typing-indicator span {
       height: 8px;
       width: 8px;
@@ -588,6 +859,10 @@ export interface TemplateProgress {
       margin: 0 2px;
       animation: typing 1.4s infinite;
       opacity: 0.7;
+    }
+    
+    .healthcare-typing span {
+      background-color: #16A34A;
     }
     
     .typing-indicator span:nth-child(2) {
@@ -612,9 +887,21 @@ export class ChatBoxComponent implements OnInit, AfterViewChecked {
   @Output() structuredInputSubmitted = new EventEmitter<any>();
   @ViewChild('messagesContainer') private messagesContainer!: ElementRef;
   
+  // Input to indicate if this is a healthcare consultation using RAG
+  @Input() isHealthcareConsultation = false;
+  
   // New inputs for template support
   @Input() templateMode = false;
   @Input() templateProgress: TemplateProgress | null = null;
+
+  // Track when healthcare mode changes
+  ngOnChanges() {
+    console.log("Chat box healthcare mode:", this.isHealthcareConsultation);
+    // Force change detection when healthcare mode changes
+    if (this.isHealthcareConsultation) {
+      console.log("Healthcare mode active in chat box");
+    }
+  }
   @Input() structuredInputFields: Array<{
     id: string;
     label: string;
@@ -629,6 +916,8 @@ export class ChatBoxComponent implements OnInit, AfterViewChecked {
   @Input() showTextInput = true; // Whether to show text input alongside structured inputs
   
   newMessage = '';
+  visibleSourcesMap: { [messageIndex: number]: boolean } = {};
+  showSourcesHelp = false;
   
   constructor(private sanitizer: DomSanitizer) {}
   
@@ -792,6 +1081,19 @@ export class ChatBoxComponent implements OnInit, AfterViewChecked {
     }
     
     return String(data);
+  }
+  
+  // Methods for handling source citations
+  toggleSourcesVisibility(messageIndex: number): void {
+    this.visibleSourcesMap[messageIndex] = !this.isSourcesVisible(messageIndex);
+  }
+  
+  isSourcesVisible(messageIndex: number): boolean {
+    return !!this.visibleSourcesMap[messageIndex];
+  }
+  
+  toggleSourcesHelp(): void {
+    this.showSourcesHelp = !this.showSourcesHelp;
   }
   
   sendMessage(): void {

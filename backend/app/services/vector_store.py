@@ -21,10 +21,15 @@ logger = logging.getLogger(__name__)
 
 # Configuration constants
 COLLECTION_NAME = "sla_knowledge_base"
-EMBEDDING_MODEL_NAME = "all-MiniLM-L6-v2"
+# Use a smaller and more memory-efficient model when running in lightweight mode
+DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+LIGHTWEIGHT_EMBEDDING_MODEL = "paraphrase-MiniLM-L3-v2"  # Smaller, faster model
+# Check for lightweight mode flag
+LIGHTWEIGHT_MODE = os.environ.get("CHAKRA_LIGHTWEIGHT_MODE", "false").lower() == "true"
+EMBEDDING_MODEL_NAME = LIGHTWEIGHT_EMBEDDING_MODEL if LIGHTWEIGHT_MODE else DEFAULT_EMBEDDING_MODEL
 PERSIST_DIRECTORY = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "vector_db")
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 200
+CHUNK_SIZE = 500 if LIGHTWEIGHT_MODE else 1000  # Smaller chunks in lightweight mode
+CHUNK_OVERLAP = 100 if LIGHTWEIGHT_MODE else 200
 
 class VectorStore:
     """
@@ -93,8 +98,29 @@ class VectorStore:
             List of embedding vectors
         """
         logger.debug(f"Generating embeddings for {len(texts)} texts")
-        embeddings = self.embedding_model.encode(texts)
-        return embeddings.tolist()
+        
+        # Process texts in smaller batches to reduce memory pressure
+        max_batch_size = 8
+        embeddings_list = []
+        
+        # If we have a small number of texts, process them directly
+        if len(texts) <= max_batch_size:
+            embeddings = self.embedding_model.encode(texts)
+            return embeddings.tolist()
+        
+        # Otherwise, process in smaller batches
+        for i in range(0, len(texts), max_batch_size):
+            batch = texts[i:i+max_batch_size]
+            logger.debug(f"Processing batch {i//max_batch_size + 1}/{(len(texts) + max_batch_size - 1)//max_batch_size}")
+            
+            batch_embeddings = self.embedding_model.encode(batch)
+            embeddings_list.extend(batch_embeddings.tolist())
+            
+            # Force garbage collection after each batch to free memory
+            import gc
+            gc.collect()
+            
+        return embeddings_list
     
     def add_documents(self, documents: List[Dict[str, Any]], metadata: Optional[List[Dict[str, Any]]] = None) -> List[str]:
         """

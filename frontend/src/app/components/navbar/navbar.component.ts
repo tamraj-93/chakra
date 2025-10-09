@@ -32,6 +32,11 @@ import { AuthService } from '../../services/auth.service';
             <li class="nav-item" *ngIf="isLoggedIn">
               <a class="nav-link" routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
             </li>
+            <li class="nav-item" *ngIf="isLoggedIn">
+              <a class="nav-link" routerLink="/my-slas" routerLinkActive="active">
+                <i class="bi bi-file-earmark-text"></i> My SLAs
+              </a>
+            </li>
             <li class="nav-item" *ngIf="isLoggedIn && isDeveloper">
               <a class="nav-link text-warning" routerLink="/dev/debug" routerLinkActive="active">
                 <i class="bi bi-wrench"></i> Debug

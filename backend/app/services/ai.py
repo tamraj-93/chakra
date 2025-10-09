@@ -847,7 +847,7 @@ def force_stage_transition(db: Session, session_id: int) -> Dict[str, Any]:
         session.session_state['completed_stages'] = completed_stages
         
 
-async def get_ai_response(messages: list, use_rag: bool = False) -> str:
+async def get_ai_response(messages: list, use_rag: bool = False) -> Dict[str, Any]:
     """
     Get a response from the configured LLM provider, optionally using RAG.
     
@@ -856,7 +856,7 @@ async def get_ai_response(messages: list, use_rag: bool = False) -> str:
         use_rag: Whether to use RAG for context augmentation
         
     Returns:
-        Generated text response as a string
+        Dictionary with response text and sources, or just a string response
     """
     try:
         # Log the LLM provider we're using
@@ -904,25 +904,106 @@ async def get_ai_response(messages: list, use_rag: bool = False) -> str:
         if use_rag and query:
             # Use RAG service for enhanced responses
             logger.info(f"Using RAG for response generation with query: {query[:50]}...")
+            logger.debug(f"RAG query full text: {query}")
+            
+            # Get RAG service and log its initialization
             rag_service = get_rag_service(provider)
-            response = await rag_service.generate_response_with_rag(messages, query)
-            logger.info(f"Successfully generated RAG response ({len(response)} chars)")
+            logger.info(f"RAG service retrieved, using {provider.__class__.__name__} as LLM provider")
+            
+            # Check for healthcare context to apply domain-specific filters
+            filter_criteria = None
+            healthcare_related = False
+            
+            # Check if any message contains healthcare keywords or if we're in a healthcare template
+            for msg in messages:
+                if msg.get("role") == "system" and isinstance(msg.get("content"), str):
+                    if "healthcare" in msg.get("content").lower() or "hipaa" in msg.get("content").lower():
+                        healthcare_related = True
+                        break
+            
+            # Apply filter for healthcare documents if this is healthcare-related
+            if healthcare_related:
+                filter_criteria = {"industry": "healthcare"}
+                logger.info(f"Applying healthcare-specific filter to RAG search")
+            
+            # Generate response with RAG, potentially with filter criteria
+            logger.debug(f"Calling generate_response_with_rag with {len(messages)} messages")
+            if filter_criteria:
+                # Get context with sources
+                logger.info(f"Retrieving healthcare-specific context with sources")
+                context_obj = rag_service.get_relevant_context(query, filter_criteria=filter_criteria, include_sources=True)
+                
+                # Extract context text and sources
+                context_text = context_obj.text if hasattr(context_obj, 'text') else str(context_obj)
+                sources = context_obj.sources if hasattr(context_obj, 'sources') else []
+                
+                # Log source information
+                if sources:
+                    logger.info(f"Found {len(sources)} relevant healthcare sources")
+                    for i, src in enumerate(sources):
+                        metadata = src.get("metadata", {})
+                        title = metadata.get("title", "Unknown")
+                        source_id = metadata.get("source", "Unknown")
+                        logger.info(f"  Source {i+1}: {title} ({source_id})")
+                
+                # Create augmented messages with the retrieved context
+                augmented_messages = messages.copy()
+                system_msg = next((m for m in augmented_messages if m["role"] == "system"), None)
+                
+                if system_msg:
+                    system_msg["content"] = system_msg["content"] + f"\n\nUse the following healthcare information:\n\n{context_text}\n\nInclude source citations like [Source 1], [Source 2], etc. when referencing specific information."
+                else:
+                    augmented_messages.insert(0, {
+                        "role": "system",
+                        "content": f"You are an AI assistant specialized in healthcare SLAs and regulations. Use the following healthcare information to help answer:\n\n{context_text}\n\nInclude source citations like [Source 1], [Source 2], etc. when referencing specific information."
+                    })
+                
+                # Generate the response with augmented messages
+                response_text = await provider.generate_response(augmented_messages)
+                logger.info(f"Generated response using healthcare-filtered RAG context")
+                
+                # Prepare response with sources
+                response = {
+                    "text": response_text,
+                    "sources": [source.get("metadata", {}) for source in sources]
+                }
+            else:
+                # Standard RAG flow
+                response_text = await rag_service.generate_response_with_rag(messages, query)
+                # No sources for standard flow
+                response = {"text": response_text, "sources": []}
+            
+            # Log successful response generation
+            if isinstance(response, dict) and "text" in response:
+                logger.info(f"Successfully generated RAG response ({len(response['text'])} chars) with {len(response['sources'])} sources")
+                logger.debug(f"RAG response preview: {response['text'][:100]}...")
+            else:
+                logger.info(f"Successfully generated RAG response ({len(response)} chars)")
+                logger.debug(f"RAG response preview: {response[:100]}...")
         else:
             # Standard response generation
             logger.info(f"Calling provider.generate_response with {len(messages)} messages (standard mode)")
-            response = await provider.generate_response(
+            response_text = await provider.generate_response(
                 messages=messages,
                 temperature=0.7,
                 max_tokens=800
             )
-            logger.info(f"Successfully generated standard response ({len(response)} chars)")
+            # Format as consistent dictionary response
+            response = {"text": response_text, "sources": []}
+            logger.info(f"Successfully generated standard response ({len(response_text)} chars)")
         
-        # Check if the response is an error message from the provider
-        if response and isinstance(response, str):
-            if "ollama" in response.lower() and any(err in response.lower() for err in ["error", "failed", "not", "unreachable"]):
-                logger.error(f"Ollama provider returned error: {response}")
-                return f"I'm having trouble accessing my knowledge base. Technical details: {response}"
-        
+        # Check if the response text is an error message from the provider
+        if isinstance(response, dict) and "text" in response:
+            response_text = response["text"]
+            if "ollama" in response_text.lower() and any(err in response_text.lower() for err in ["error", "failed", "not", "unreachable"]):
+                logger.error(f"Ollama provider returned error: {response_text}")
+                error_response = f"I'm having trouble accessing my knowledge base. Technical details: {response_text}"
+                return {"text": error_response, "sources": []}
+        elif isinstance(response, str) and "ollama" in response.lower() and any(err in response.lower() for err in ["error", "failed", "not", "unreachable"]):
+            logger.error(f"Ollama provider returned error string: {response}")
+            error_response = f"I'm having trouble accessing my knowledge base. Technical details: {response}"
+            return {"text": error_response, "sources": []}
+            
         return response
         
     except Exception as e:
@@ -1163,21 +1244,58 @@ Extract the requested information and provide appropriate guidance.
         use_rag = True
         logger.info("Using RAG for SLA-related conversation")
     
+    # Check if this is a healthcare related consultation
+    if template_data and "healthcare" in template_data.get("name", "").lower():
+        # Always use RAG for healthcare consultations
+        use_rag = True
+        logger.info("Using RAG for healthcare-related consultation")
+        
+        # Add healthcare-specific filter criteria for the RAG service to focus on healthcare documents
+        if "system_message" in locals() and isinstance(system_message, dict):
+            # Update system message to instruct use of healthcare knowledge
+            healthcare_context = (
+                "This is a healthcare-related consultation. "
+                "Focus on healthcare industry standards, HIPAA compliance, "
+                "patient data security, and healthcare-specific SLA requirements. "
+                "Provide detailed references to relevant healthcare regulations when applicable."
+            )
+            
+            # Append to existing system message if it exists
+            if "content" in system_message:
+                system_message["content"] = system_message["content"] + "\n\n" + healthcare_context
+                logger.info("Enhanced system message with healthcare-specific context")
+    
     # Only use RAG after a few messages to have enough context
     if len(openai_messages) < 3:
         use_rag = False
         logger.info("Not using RAG for short conversation")
     
     # Get response with or without RAG
-    response = await get_ai_response(openai_messages, use_rag=use_rag)
+    response_data = await get_ai_response(openai_messages, use_rag=use_rag)
+    
+    # Check if we got a response with sources
+    sources = []
+    response_text = ""
+    
+    if isinstance(response_data, dict) and "text" in response_data:
+        # RAG response with sources
+        response_text = response_data["text"]
+        sources = response_data.get("sources", [])
+        logger.info(f"Received response with {len(sources)} citation sources")
+    else:
+        # Regular text response
+        response_text = response_data
     
     # Save AI response to database
     ai_message = db_models.Message(
         session_id=session.id,
-        content=response,
+        content=response_text,
         role="assistant"
     )
     db.add(ai_message)
+    
+    # Update response to include sources if available
+    response = response_text
     
     # Update template progression if this is a template-based session
     if current_stage and role == "user" and template_data:
@@ -1224,6 +1342,10 @@ Extract the requested information and provide appropriate guidance.
                     }
                 }
                 
+                # Add sources if available
+                if sources:
+                    response_with_progress["sources"] = sources
+                
                 db.commit()
                 return response_with_progress
             else:
@@ -1242,6 +1364,10 @@ Extract the requested information and provide appropriate guidance.
                     }
                 }
                 
+                # Add sources if available
+                if sources:
+                    response_with_completion["sources"] = sources
+                
                 db.commit()
                 return response_with_completion
     
@@ -1257,7 +1383,13 @@ Extract the requested information and provide appropriate guidance.
     db.commit()
     
     # Standard response for non-template sessions
-    return {
+    response_obj = {
         "message": response,
         "session_id": session.id
     }
+    
+    # Add sources if available
+    if sources:
+        response_obj["sources"] = sources
+    
+    return response_obj

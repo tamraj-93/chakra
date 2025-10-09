@@ -11,6 +11,8 @@ import { TemplateListComponent } from './pages/template-list/template-list.compo
 import { DebugToolsComponent } from './components/debug-tools/debug-tools.component';
 import { SlaTemplateGeneratorComponent } from './components/sla-template-generator/sla-template-generator.component';
 import { KnowledgeBaseComponent } from './pages/knowledge-base/knowledge-base.component';
+import { MySLAsComponent } from './pages/my-slas/my-slas.component';
+import { SlaDocumentComponent } from './pages/sla-document/sla-document.component';
 import { AuthGuard } from './guards/auth.guard';
 
 const routes: Routes = [
@@ -55,6 +57,16 @@ const routes: Routes = [
   {
     path: 'knowledge-base',
     component: KnowledgeBaseComponent,
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'my-slas',
+    component: MySLAsComponent,
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'sla-documents/:id',
+    component: SlaDocumentComponent,
     canActivate: [AuthGuard]
   },
   { path: '**', redirectTo: '' }

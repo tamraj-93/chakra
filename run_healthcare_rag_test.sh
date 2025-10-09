@@ -111,7 +111,31 @@ echo -e "${GREEN}PYTHONPATH set to: $PYTHONPATH${NC}"
 mkdir -p backend/data/test_vector_db
 mkdir -p backend/tests/results
 
-echo -e "${BLUE}Step 2: Running minimal healthcare RAG test${NC}"
+echo -e "${BLUE}Step 2: Initialize RAG System${NC}"
+echo -e "${BLUE}--------------------------------------${NC}"
+
+# Initialize RAG system first
+RAG_INIT_SCRIPT="backend/scripts/init_rag_system.py"
+if [ -f "$RAG_INIT_SCRIPT" ]; then
+    echo -e "${BLUE}Initializing RAG system...${NC}"
+    cd backend || exit 1
+    $PYTHON_CMD scripts/init_rag_system.py
+    INIT_RESULT=$?
+    cd ..
+    
+    if [ $INIT_RESULT -eq 0 ]; then
+        echo -e "${GREEN}RAG system initialized successfully!${NC}"
+    else
+        echo -e "${RED}Failed to initialize RAG system.${NC}"
+        echo -e "${YELLOW}Please check if you have all dependencies installed.${NC}"
+        exit 1
+    fi
+else
+    echo -e "${RED}Error: RAG initialization script not found: $RAG_INIT_SCRIPT${NC}"
+    exit 1
+fi
+
+echo -e "${BLUE}Step 3: Running minimal healthcare RAG test${NC}"
 echo -e "${BLUE}--------------------------------------${NC}"
 
 # Try to run the minimal test script first
@@ -135,7 +159,7 @@ else
     echo -e "${YELLOW}Will try the full test script instead.${NC}"
 fi
 
-echo -e "${BLUE}Step 3: Running full healthcare RAG tests${NC}"
+echo -e "${BLUE}Step 4: Running full healthcare RAG tests${NC}"
 echo -e "${BLUE}--------------------------------------${NC}"
 
 # Verify that the test script exists

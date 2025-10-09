@@ -33,6 +33,8 @@ import { DebugToolsComponent } from './components/debug-tools/debug-tools.compon
 import { SlaTemplateGeneratorComponent } from './components/sla-template-generator/sla-template-generator.component';
 import { KnowledgeBaseComponent } from './pages/knowledge-base/knowledge-base.component';
 import { LoadingSpinnerComponent } from './components/loading-spinner/loading-spinner.component';
+import { MySLAsComponent } from './pages/my-slas/my-slas.component';
+import { SlaDocumentComponent } from './pages/sla-document/sla-document.component';
 
 @NgModule({
   declarations: [
@@ -54,7 +56,9 @@ import { LoadingSpinnerComponent } from './components/loading-spinner/loading-sp
     SlaTemplateGeneratorComponent,
     KnowledgeBaseComponent,
     LoadingSpinnerComponent,
-    StructuredDataPipe
+    StructuredDataPipe,
+    MySLAsComponent,
+    SlaDocumentComponent
   ],
   imports: [
     BrowserModule,

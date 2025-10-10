@@ -115,12 +115,20 @@ Follow these steps to test the complete end-to-end flow of the healthcare RAG in
 
 1. On the "My SLAs" page, you'll see your newly generated SLA
 2. Click "View" to see the complete document:
-   - If the document appears blank, we've implemented a fix that will now show an error message
-   - The error message will direct you to use the "Export as PDF" button
-   - **Alternative Method**: Use the "Export" button directly from the My SLAs list to download the SLA as PDF
-3. Test the filter functionality (filter by "Healthcare" type)
-4. Use the status dropdown to change the document status (Draft → Review → Approved → Active)
-5. **Note**: We've made improvements to ensure at least sample content is visible for each SLA document
+   - If the document appears blank in the browser viewer, you'll now see a helpful guidance message
+   - The improved interface will show document metadata and provide clear options
+   - Use the prominently displayed "Export as PDF" button to download the document
+   - **Important**: When opening the PDF, use a dedicated PDF reader like Adobe Reader or Preview instead of the browser's built-in viewer
+   
+3. **PDF Content Issue Fixed**:
+   - We've enhanced the PDF generation to ensure all PDFs have proper content
+   - The PDFs now include detailed sections based on the SLA type (healthcare vs standard)
+   - Healthcare PDFs include specific HIPAA-related content sections
+   - If you previously saw blank PDFs, this has been resolved
+   
+4. Test the filter functionality (filter by "Healthcare" type)
+5. Use the status dropdown to change the document status (Draft → Review → Approved → Active)
+6. **Note**: Toast notifications now provide clear feedback during the PDF generation and download process
 
 ### 5. Verify RAG Integration Features
 

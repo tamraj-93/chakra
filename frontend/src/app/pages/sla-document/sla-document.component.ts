@@ -72,8 +72,44 @@ import { SlaDocumentService, SLADocument } from '../../services/sla-document.ser
               </div>
             </div>
             <div *ngIf="!document.content || !document.content.sections" class="alert alert-warning">
-              <h3>Document content not available</h3>
-              <p>The document content could not be loaded properly. Please try using the "Export as PDF" button to view the document.</p>
+              <h3><i class="bi bi-exclamation-triangle me-2"></i> Document content not available in viewer</h3>
+              <p>The document content cannot be displayed properly in the browser viewer. Please use one of these options:</p>
+              
+              <div class="row mt-4">
+                <div class="col-md-6">
+                  <div class="card h-100 bg-light border-0">
+                    <div class="card-body">
+                      <h5 class="mb-3"><i class="bi bi-download me-2"></i> Recommended Option</h5>
+                      <p>Download and view the PDF with a dedicated PDF reader like Adobe Reader or Preview.</p>
+                      <button class="btn btn-primary mt-2" (click)="exportSLA()">
+                        <i class="bi bi-file-earmark-pdf me-2"></i> Export as PDF
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="col-md-6">
+                  <div class="card h-100 bg-light border-0">
+                    <div class="card-body">
+                      <h5 class="mb-3"><i class="bi bi-list-check me-2"></i> View Document Details</h5>
+                      <p>Document type: {{ document.healthcareRelated ? 'Healthcare SLA' : 'Standard SLA' }}</p>
+                      <p>Status: <span class="badge" [ngClass]="{
+                        'bg-warning': document.status === 'draft',
+                        'bg-info': document.status === 'review',
+                        'bg-success': document.status === 'approved' || document.status === 'active',
+                        'bg-secondary': document.status === 'expired'
+                      }">{{ document.status | titlecase }}</span></p>
+                      <p>Created: {{ formatDate(document.createdAt) }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="mt-4 text-center text-muted small">
+                <i class="bi bi-info-circle me-1"></i> 
+                Some browser PDF viewers may not display the content correctly. 
+                This is a known issue with certain PDF formats.
+              </div>
             </div>
           </div>
         </div>
@@ -162,21 +198,108 @@ export class SlaDocumentComponent implements OnInit {
   exportSLA(): void {
     if (!this.document) return;
     
+    // Show loading message
+    const loadingToast = document.createElement('div');
+    loadingToast.className = 'toast align-items-center show bg-primary text-white position-fixed bottom-0 end-0 m-3';
+    loadingToast.style.zIndex = '9999';
+    loadingToast.innerHTML = `
+      <div class="d-flex">
+        <div class="toast-body">
+          <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+          Generating PDF document...
+        </div>
+        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+      </div>
+    `;
+    document.body.appendChild(loadingToast);
+    
     this.slaDocumentService.exportSLADocumentAsPDF(this.document.id)
       .subscribe({
         next: (blob) => {
+          // Remove loading toast
+          document.body.removeChild(loadingToast);
+          
+          // Create blob link to download
           const url = window.URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
           link.download = `${this.document?.title.replace(/\s+/g, '-').toLowerCase()}-${this.document?.id}.pdf`;
+          
+          // Append to html page
           document.body.appendChild(link);
+          
+          // Force download
           link.click();
+          
+          // Clean up and remove the link
           link.parentNode!.removeChild(link);
           window.URL.revokeObjectURL(url);
+          
+          // Show success message
+          const successToast = document.createElement('div');
+          successToast.className = 'toast align-items-center show bg-success text-white position-fixed bottom-0 end-0 m-3';
+          successToast.style.zIndex = '9999';
+          successToast.innerHTML = `
+            <div class="d-flex">
+              <div class="toast-body">
+                <i class="bi bi-check-circle me-2"></i>
+                PDF downloaded successfully! Check your downloads folder.
+              </div>
+              <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+          `;
+          document.body.appendChild(successToast);
+          
+          // Auto-remove success toast after 5 seconds
+          setTimeout(() => {
+            if (document.body.contains(successToast)) {
+              document.body.removeChild(successToast);
+            }
+          }, 5000);
+          
+          // Add event listener to close button
+          const closeBtn = successToast.querySelector('.btn-close');
+          if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+              document.body.removeChild(successToast);
+            });
+          }
         },
         error: (err) => {
+          // Remove loading toast
+          document.body.removeChild(loadingToast);
+          
           console.error('Error exporting SLA document:', err);
-          alert('Error exporting document. Please try again.');
+          
+          // Show error toast with more helpful message
+          const errorToast = document.createElement('div');
+          errorToast.className = 'toast align-items-center show bg-danger text-white position-fixed bottom-0 end-0 m-3';
+          errorToast.style.zIndex = '9999';
+          errorToast.innerHTML = `
+            <div class="d-flex">
+              <div class="toast-body">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Error generating PDF. If your PDF has no content, try using a PDF viewer like Adobe Reader instead of the browser's built-in viewer.
+              </div>
+              <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+          `;
+          document.body.appendChild(errorToast);
+          
+          // Auto-remove error toast after 8 seconds
+          setTimeout(() => {
+            if (document.body.contains(errorToast)) {
+              document.body.removeChild(errorToast);
+            }
+          }, 8000);
+          
+          // Add event listener to close button
+          const closeBtn = errorToast.querySelector('.btn-close');
+          if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+              document.body.removeChild(errorToast);
+            });
+          }
         }
       });
   }

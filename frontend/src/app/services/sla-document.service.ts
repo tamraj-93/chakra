@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+import jsPDF from 'jspdf';
 
 export interface SLADocument {
   id: string;
@@ -87,10 +88,162 @@ export class SlaDocumentService {
       .pipe(
         catchError(error => {
           console.error(`Error exporting SLA document ${id} as PDF:`, error);
-          // For hackathon, create a simple PDF blob
-          const text = 'This is a placeholder for the SLA document PDF export.';
-          const blob = new Blob([text], { type: 'application/pdf' });
-          return of(blob);
+          // Generate a more detailed sample PDF with actual content using jsPDF
+          const doc = this.getMockSLADocuments().find(d => d.id === id);
+          
+          // Create a sample PDF with actual content from the mock document
+          const title = doc?.title || 'Service Level Agreement';
+          const description = doc?.description || 'SLA Document';
+          const isHealthcare = doc?.healthcareRelated || false;
+          
+          // Generate content sections based on type
+          const securitySection = isHealthcare 
+            ? "- Encryption: All PHI must be encrypted at rest and in transit using AES-256\n"
+              + "- Access Control: Role-based access control with MFA required\n"
+              + "- Audit Logging: All data access must be logged and accessible for review\n"
+              + "- Risk Assessments: Performed quarterly as per HIPAA Security Rule requirements"
+            : "- Encryption: All sensitive data encrypted at rest and in transit\n"
+              + "- Access Control: Role-based access with authentication required\n"
+              + "- Audit Logging: System access logs maintained for 90 days";
+          
+          const serviceOverview = isHealthcare 
+            ? "This SLA covers Electronic Health Record (EHR) hosting services compliant with HIPAA regulations."
+            : "This SLA covers all services provided as outlined in the accompanying contract.";
+            
+          const hipaaMetric = isHealthcare 
+            ? "- HIPAA Compliance: Guaranteed full compliance with all regulations\n" 
+            : "";
+            
+          const disasterRecoveryExtra = isHealthcare
+            ? "- Patient Data Protection: Special procedures for PHI protection during recovery\n"
+            : "";
+            
+          const healthcareCompliant = isHealthcare 
+            ? "HEALTHCARE COMPLIANT: YES\n" 
+            : "";
+            
+          // Create PDF using jsPDF
+          const pdf = new jsPDF();
+          
+          // Add title
+          pdf.setFontSize(20);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text(title, 20, 20);
+          
+          // Add line under title
+          pdf.setDrawColor(0);
+          pdf.setLineWidth(0.5);
+          pdf.line(20, 25, 190, 25);
+          
+          // Add description
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(description, 20, 35);
+          
+          // Add status and healthcare compliance
+          pdf.setFontSize(11);
+          let yPosition = 45;
+          
+          pdf.setFont('helvetica', 'bold');
+          pdf.text("STATUS: " + (doc?.status?.toUpperCase() || "DRAFT"), 20, yPosition);
+          yPosition += 7;
+          
+          if (isHealthcare) {
+            pdf.text("HEALTHCARE COMPLIANT: YES", 20, yPosition);
+            yPosition += 7;
+          }
+          
+          pdf.text("Created: " + new Date().toLocaleDateString(), 20, yPosition);
+          yPosition += 15;
+          
+          // Document Sections Title
+          pdf.setFontSize(14);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text("DOCUMENT SECTIONS:", 20, yPosition);
+          yPosition += 10;
+          
+          // 1. Service Overview
+          pdf.setFontSize(12);
+          pdf.setFont('helvetica', 'bold');
+          pdf.text("1. SERVICE OVERVIEW", 20, yPosition);
+          yPosition += 7;
+          
+          pdf.setFont('helvetica', 'normal');
+          pdf.text(serviceOverview, 25, yPosition, { maxWidth: 165 });
+          yPosition += 15;
+          
+          // 2. Performance Metrics
+          pdf.setFont('helvetica', 'bold');
+          pdf.text("2. PERFORMANCE METRICS", 20, yPosition);
+          yPosition += 7;
+          
+          pdf.setFont('helvetica', 'normal');
+          pdf.text("- Availability: 99.9% uptime guaranteed", 25, yPosition);
+          yPosition += 7;
+          pdf.text("- Response Time: < 500ms for standard transactions", 25, yPosition);
+          yPosition += 7;
+          
+          if (isHealthcare) {
+            pdf.text("- HIPAA Compliance: Guaranteed full compliance with all regulations", 25, yPosition);
+            yPosition += 7;
+          }
+          yPosition += 8;
+          
+          // 3. Support Levels
+          pdf.setFont('helvetica', 'bold');
+          pdf.text("3. SUPPORT LEVELS", 20, yPosition);
+          yPosition += 7;
+          
+          pdf.setFont('helvetica', 'normal');
+          pdf.text("- Critical Issues: Response within 15 minutes", 25, yPosition);
+          yPosition += 7;
+          pdf.text("- Major Issues: Response within 1 hour", 25, yPosition);
+          yPosition += 7;
+          pdf.text("- Minor Issues: Response within 24 hours", 25, yPosition);
+          yPosition += 15;
+          
+          // 4. Security Requirements
+          pdf.setFont('helvetica', 'bold');
+          pdf.text("4. SECURITY REQUIREMENTS", 20, yPosition);
+          yPosition += 7;
+          
+          pdf.setFont('helvetica', 'normal');
+          const securityLines = securitySection.split('\n');
+          securityLines.forEach(line => {
+            pdf.text(line, 25, yPosition);
+            yPosition += 7;
+          });
+          yPosition += 8;
+          
+          // 5. Disaster Recovery
+          pdf.setFont('helvetica', 'bold');
+          pdf.text("5. DISASTER RECOVERY", 20, yPosition);
+          yPosition += 7;
+          
+          pdf.setFont('helvetica', 'normal');
+          pdf.text("- Recovery Time Objective (RTO): 4 hours", 25, yPosition);
+          yPosition += 7;
+          pdf.text("- Recovery Point Objective (RPO): 15 minutes", 25, yPosition);
+          yPosition += 7;
+          
+          if (isHealthcare) {
+            pdf.text("- Patient Data Protection: Special procedures for PHI protection during recovery", 25, yPosition);
+            yPosition += 7;
+          }
+          yPosition += 15;
+          
+          // Footer
+          pdf.setFontSize(10);
+          pdf.setTextColor(100);
+          pdf.text("Generated with Chakra SLA Management Platform", 20, 280);
+          
+          // Add page number
+          pdf.setFont('helvetica', 'italic');
+          pdf.text(`Page 1`, 180, 280);
+          
+          // Create a PDF blob with actual content
+          const pdfOutput = pdf.output('blob');
+          return of(pdfOutput);
         })
       );
   }

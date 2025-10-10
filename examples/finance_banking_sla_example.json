@@ -1,0 +1,285 @@
+{
+  "id": "fin-banking-sla-001",
+  "name": "Financial Services Banking SLA",
+  "description": "Service Level Agreement for Banking and Financial Services covering transaction processing, reporting, and compliance",
+  "domain": "Finance",
+  "version": "1.0",
+  "initial_system_prompt": "You are a financial services specialist advisor helping create an SLA for banking and financial services. Focus on transaction processing, security, compliance, reporting, and service availability requirements specific to the finance industry.",
+  "stages": [
+    {
+      "id": "fin-stage-1",
+      "name": "Financial Service Definition",
+      "description": "Define the specific financial services covered by this SLA",
+      "stage_type": "information_gathering",
+      "prompt_template": "I'll help you define your financial services SLA. First, I need to understand what specific financial services will be covered.\n\nPlease tell me about your financial services:\n1. What types of financial services are included? (e.g., payment processing, trading platform, wealth management)\n2. Are these consumer-facing or B2B services?\n3. What's the scale of operations in terms of transaction volume?\n4. What regulatory frameworks apply to these services?",
+      "system_instructions": "Gather information about the financial services that will be covered by the SLA. Focus on service types, customer segments, transaction volumes, and regulatory requirements.",
+      "expected_outputs": [
+        {
+          "name": "financial_services",
+          "description": "List of financial services covered",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "customer_segments",
+          "description": "Consumer, business, or both",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "transaction_volume",
+          "description": "Scale of transaction processing",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "regulatory_frameworks",
+          "description": "Applicable regulations",
+          "data_type": "list",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "fin-stage-2",
+      "name": "Transaction Processing Requirements",
+      "description": "Define transaction processing requirements for financial services",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define the transaction processing requirements for your financial services.\n\nPlease specify:\n1. What are the expected transaction processing times?\n2. What is the required system capacity in terms of transactions per second?\n3. What is the maximum acceptable error rate for transactions?\n4. How should failed transactions be handled and reported?\n5. Are there specific peak periods or events that require increased capacity?",
+      "system_instructions": "Gather detailed information about transaction processing requirements, focusing on processing times, capacity, error rates, and handling of peak periods.",
+      "expected_outputs": [
+        {
+          "name": "processing_times",
+          "description": "Expected transaction processing times",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "transaction_capacity",
+          "description": "Required transaction capacity",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "error_rate",
+          "description": "Maximum acceptable error rate",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "peak_periods",
+          "description": "Specific peak periods or events",
+          "data_type": "list",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "fin-stage-3",
+      "name": "Availability Requirements",
+      "description": "Define availability requirements for financial services",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define the availability requirements for your financial services.\n\nPlease specify:\n1. What level of uptime do you require? (e.g., 99.9%, 99.99%, 99.999%)\n2. Are there different availability requirements for different services?\n3. What are the requirements for planned maintenance windows?\n4. How should service degradation vs. complete outages be measured and addressed?",
+      "system_instructions": "Gather detailed information about availability requirements, focusing on uptime percentages, maintenance windows, and service degradation definitions.",
+      "expected_outputs": [
+        {
+          "name": "uptime_requirement",
+          "description": "Required uptime percentage",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "service_tiers",
+          "description": "Availability requirements for different services",
+          "data_type": "object",
+          "required": false
+        },
+        {
+          "name": "maintenance_windows",
+          "description": "Requirements for planned maintenance",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "degradation_definition",
+          "description": "Definition of service degradation",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "fin-stage-4",
+      "name": "Security and Compliance",
+      "description": "Define security and compliance requirements for financial services",
+      "stage_type": "information_gathering",
+      "prompt_template": "Security and compliance are critical for financial services. Let's define these requirements.\n\nPlease specify:\n1. What data protection and encryption requirements apply?\n2. What authentication and authorization standards must be met?\n3. What compliance frameworks apply (e.g., PCI-DSS, SOX, GDPR, local banking regulations)?\n4. What audit and reporting requirements exist for security and compliance?\n5. What is the frequency of required security assessments and penetration testing?",
+      "system_instructions": "Gather detailed information about security and compliance requirements, focusing on data protection, authentication, regulatory compliance, and audit requirements.",
+      "expected_outputs": [
+        {
+          "name": "data_protection",
+          "description": "Data protection and encryption requirements",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "authentication_standards",
+          "description": "Authentication and authorization standards",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "compliance_frameworks",
+          "description": "Applicable compliance frameworks",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "security_assessments",
+          "description": "Required security assessments and frequency",
+          "data_type": "object",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "fin-stage-5",
+      "name": "Reporting and Monitoring",
+      "description": "Define reporting and monitoring requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define your reporting and monitoring requirements for financial services.\n\nPlease specify:\n1. What types of reports are required and at what frequency?\n2. What metrics must be monitored in real-time?\n3. What alerting thresholds and mechanisms should be in place?\n4. What access do you require to monitoring dashboards or tools?\n5. Are there specific regulatory reporting requirements that must be met?",
+      "system_instructions": "Gather detailed information about reporting and monitoring requirements, focusing on report types, metrics, alerting, and regulatory reporting.",
+      "expected_outputs": [
+        {
+          "name": "report_types",
+          "description": "Required report types and frequency",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "monitoring_metrics",
+          "description": "Metrics to be monitored",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "alerting_thresholds",
+          "description": "Alerting thresholds and mechanisms",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "regulatory_reporting",
+          "description": "Regulatory reporting requirements",
+          "data_type": "object",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "fin-stage-6",
+      "name": "Disaster Recovery and Business Continuity",
+      "description": "Define disaster recovery and business continuity requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define your disaster recovery and business continuity requirements for financial services.\n\nPlease specify:\n1. What are your Recovery Time Objectives (RTO)?\n2. What are your Recovery Point Objectives (RPO)?\n3. What business continuity arrangements must be in place?\n4. What testing and simulation exercises are required?\n5. What documentation and reporting is required for DR/BC events?",
+      "system_instructions": "Gather detailed information about disaster recovery and business continuity requirements, focusing on RTO, RPO, testing, and documentation.",
+      "expected_outputs": [
+        {
+          "name": "rto",
+          "description": "Recovery Time Objective",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "rpo",
+          "description": "Recovery Point Objective",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "bc_arrangements",
+          "description": "Business continuity arrangements",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "testing_frequency",
+          "description": "Testing and simulation frequency",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "fin-stage-7",
+      "name": "Service Support",
+      "description": "Define service support requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define your service support requirements for financial services.\n\nPlease specify:\n1. What are the required support hours (24x7, business hours)?\n2. What are the expected response times for different severity issues?\n3. What support channels must be available (phone, email, portal)?\n4. What escalation procedures should be in place?\n5. Are there specific language or regional support requirements?",
+      "system_instructions": "Gather detailed information about service support requirements, focusing on support hours, response times, channels, and escalation procedures.",
+      "expected_outputs": [
+        {
+          "name": "support_hours",
+          "description": "Required support hours",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "response_times",
+          "description": "Expected response times by severity",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "support_channels",
+          "description": "Required support channels",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "escalation_procedures",
+          "description": "Escalation procedures",
+          "data_type": "object",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "fin-stage-8",
+      "name": "SLA Penalties and Remedies",
+      "description": "Define penalties and remedies for SLA violations",
+      "stage_type": "information_gathering",
+      "prompt_template": "Finally, let's define penalties and remedies for SLA violations.\n\nPlease specify:\n1. What service credits apply for different levels of SLA violations?\n2. Are there specific penalties for security or compliance violations?\n3. What is the process for claiming SLA credits?\n4. Are there circumstances where SLA guarantees don't apply?\n5. How should repeated violations be addressed?",
+      "system_instructions": "Gather detailed information about penalties and remedies for SLA violations, focusing on service credits, claiming processes, and repeated violations.",
+      "expected_outputs": [
+        {
+          "name": "service_credits",
+          "description": "Service credits for SLA violations",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "compliance_penalties",
+          "description": "Penalties for security or compliance violations",
+          "data_type": "object",
+          "required": false
+        },
+        {
+          "name": "claiming_process",
+          "description": "Process for claiming SLA credits",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "sla_exclusions",
+          "description": "Circumstances where SLA doesn't apply",
+          "data_type": "list",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "tags": ["finance", "banking", "payments", "compliance", "transactions", "financial-services"],
+  "is_public": true,
+  "created_at": "2025-10-05T14:00:00Z"
+}

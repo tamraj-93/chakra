@@ -1,0 +1,215 @@
+{
+  "id": "inf-cloud-sla-001",
+  "name": "Enterprise Infrastructure SLA",
+  "description": "Service Level Agreement for Enterprise Cloud Infrastructure Services covering compute, storage, and networking",
+  "domain": "Infrastructure",
+  "version": "1.0",
+  "initial_system_prompt": "You are an infrastructure specialist advisor helping create an SLA for cloud infrastructure services. Focus on performance, reliability, security, and support requirements for enterprise cloud services.",
+  "stages": [
+    {
+      "id": "inf-stage-1",
+      "name": "Infrastructure Service Definition",
+      "description": "Define the specific infrastructure services covered by this SLA",
+      "stage_type": "information_gathering",
+      "prompt_template": "I'll help you define your infrastructure services SLA. First, I need to understand what specific infrastructure services will be covered.\n\nPlease tell me about your infrastructure services:\n1. What types of infrastructure are covered? (e.g., compute, storage, networking)\n2. Is this for on-premises, cloud, or hybrid infrastructure?\n3. What's the criticality of these services for your business operations?\n4. Are there any specific compliance or regulatory requirements?",
+      "system_instructions": "Gather information about the infrastructure services that will be covered by the SLA. Focus on service types, deployment models, criticality, and any compliance requirements.",
+      "expected_outputs": [
+        {
+          "name": "infrastructure_services",
+          "description": "List of infrastructure services covered",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "deployment_model",
+          "description": "On-premises, cloud, or hybrid",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "criticality",
+          "description": "Business criticality of services",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "inf-stage-2",
+      "name": "Service Availability Requirements",
+      "description": "Define availability requirements for infrastructure services",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define the availability requirements for your infrastructure services.\n\nPlease specify:\n1. What level of uptime do you require? (e.g., 99.9%, 99.99%, 99.999%)\n2. Are there specific maintenance windows that are acceptable?\n3. How should planned vs. unplanned downtime be handled?\n4. Do you need different availability tiers for different services?",
+      "system_instructions": "Gather detailed information about availability requirements, focusing on uptime percentages, maintenance windows, and how to handle different types of downtime.",
+      "expected_outputs": [
+        {
+          "name": "uptime_requirement",
+          "description": "Required uptime percentage",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "maintenance_windows",
+          "description": "Acceptable maintenance windows",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "availability_tiers",
+          "description": "Different availability requirements for different services",
+          "data_type": "object",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "inf-stage-3",
+      "name": "Performance Metrics",
+      "description": "Define key performance metrics for infrastructure services",
+      "stage_type": "information_gathering",
+      "prompt_template": "Now, let's define the performance metrics for your infrastructure services.\n\nPlease specify metrics for:\n1. Compute performance (CPU, memory utilization thresholds)\n2. Storage performance (IOPS, latency, throughput)\n3. Network performance (bandwidth, latency, packet loss)\n4. Response time for service requests\n5. Any other critical performance indicators",
+      "system_instructions": "Gather detailed information about performance metrics for different infrastructure components. Focus on measurable metrics that can be monitored and reported.",
+      "expected_outputs": [
+        {
+          "name": "compute_metrics",
+          "description": "Performance metrics for compute resources",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "storage_metrics",
+          "description": "Performance metrics for storage resources",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "network_metrics",
+          "description": "Performance metrics for network resources",
+          "data_type": "object",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "inf-stage-4",
+      "name": "Security Requirements",
+      "description": "Define security requirements for infrastructure services",
+      "stage_type": "information_gathering",
+      "prompt_template": "Security is critical for infrastructure services. Let's define your security requirements.\n\nPlease specify:\n1. What encryption requirements do you have for data at rest and in transit?\n2. What access control and authentication mechanisms are needed?\n3. What vulnerability management and patching requirements do you have?\n4. What security monitoring and incident response capabilities are required?\n5. Any compliance frameworks that must be adhered to (e.g., ISO 27001, SOC 2, etc.)",
+      "system_instructions": "Gather detailed information about security requirements, focusing on encryption, access control, vulnerability management, and compliance requirements.",
+      "expected_outputs": [
+        {
+          "name": "encryption_requirements",
+          "description": "Requirements for data encryption",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "access_control",
+          "description": "Access control and authentication requirements",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "compliance_frameworks",
+          "description": "Required compliance frameworks",
+          "data_type": "list",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "inf-stage-5",
+      "name": "Incident Management & Support",
+      "description": "Define incident management and support requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define your incident management and support requirements.\n\nPlease specify:\n1. What are your expected response times for different severity incidents?\n2. What support channels should be available (phone, email, portal)?\n3. What hours of support are required (24x7, business hours)?\n4. What escalation procedures should be in place?\n5. What reporting do you require for incidents and support requests?",
+      "system_instructions": "Gather detailed information about incident management and support requirements, focusing on response times, support channels, and escalation procedures.",
+      "expected_outputs": [
+        {
+          "name": "incident_severities",
+          "description": "Definition of incident severity levels",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "response_times",
+          "description": "Expected response times by severity",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "support_channels",
+          "description": "Required support channels",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "support_hours",
+          "description": "Hours of support availability",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "inf-stage-6",
+      "name": "Disaster Recovery",
+      "description": "Define disaster recovery requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define your disaster recovery requirements for infrastructure services.\n\nPlease specify:\n1. What are your Recovery Time Objectives (RTO)?\n2. What are your Recovery Point Objectives (RPO)?\n3. What types of disaster scenarios should be covered?\n4. What testing and validation procedures are required for DR?\n5. What documentation and reporting do you need for DR events?",
+      "system_instructions": "Gather detailed information about disaster recovery requirements, focusing on RTO, RPO, and testing procedures.",
+      "expected_outputs": [
+        {
+          "name": "rto",
+          "description": "Recovery Time Objective",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "rpo",
+          "description": "Recovery Point Objective",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "dr_scenarios",
+          "description": "Disaster scenarios to be covered",
+          "data_type": "list",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "inf-stage-7",
+      "name": "SLA Remedies",
+      "description": "Define remedies for SLA violations",
+      "stage_type": "information_gathering",
+      "prompt_template": "Finally, let's define remedies for SLA violations.\n\nPlease specify:\n1. What credits or refunds should apply for different levels of SLA violations?\n2. Are there specific penalties for security or compliance violations?\n3. What is the process for claiming SLA credits?\n4. Are there circumstances where SLA guarantees don't apply?",
+      "system_instructions": "Gather detailed information about remedies for SLA violations, focusing on credits, penalties, and claiming processes.",
+      "expected_outputs": [
+        {
+          "name": "credit_structure",
+          "description": "Structure for SLA violation credits",
+          "data_type": "object",
+          "required": true
+        },
+        {
+          "name": "claiming_process",
+          "description": "Process for claiming SLA credits",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "exclusions",
+          "description": "Circumstances where SLA doesn't apply",
+          "data_type": "list",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "tags": ["infrastructure", "cloud", "enterprise", "compute", "storage", "networking"],
+  "is_public": true,
+  "created_at": "2025-10-01T10:00:00Z"
+}

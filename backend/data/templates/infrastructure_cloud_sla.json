@@ -1,0 +1,181 @@
+{
+  "id": "infrastructure_cloud_sla",
+  "name": "Infrastructure Cloud SLA Template",
+  "description": "Template for creating comprehensive service level agreements for cloud infrastructure services",
+  "domain": "Infrastructure",
+  "version": "1.0",
+  "tags": ["infrastructure", "cloud", "hosting", "SLA", "data centers", "compute"],
+  "initial_system_prompt": "You are Chakra, an AI assistant specializing in infrastructure SLAs. Your goal is to help organizations create comprehensive service level agreements for cloud and data center infrastructure services. Follow each stage carefully and guide the user through the process, ensuring all critical availability, performance, and security requirements are addressed.",
+  "is_public": true,
+  "created_at": "2025-10-10T12:00:00Z",
+  "stages": [
+    {
+      "id": "stage1",
+      "name": "Service Scope Definition",
+      "description": "Define the infrastructure services covered by the SLA",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's start by defining the scope of your cloud infrastructure services. What specific infrastructure components will be covered under this SLA? (For example: compute instances, storage, networking, load balancing, databases, etc.)",
+      "system_instructions": "Help the user identify all key infrastructure components that need to be covered. Ask about specific cloud services, deployment models, and critical workloads. Ensure they consider both production and non-production environments.",
+      "expected_outputs": [
+        {
+          "name": "cloud_services",
+          "description": "List of cloud services covered by the SLA",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "deployment_models",
+          "description": "Cloud deployment models in use (public, private, hybrid)",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "critical_workloads",
+          "description": "Critical applications and workloads running on the infrastructure",
+          "data_type": "list",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "stage2",
+      "name": "Availability Requirements",
+      "description": "Define availability requirements for the infrastructure services",
+      "stage_type": "information_gathering",
+      "prompt_template": "Now, let's define the availability requirements for your infrastructure services. What level of uptime do you require for your cloud services? Are there different tiers of availability for different services?",
+      "system_instructions": "Guide the user through setting realistic availability targets. Explain the difference between 99.9% vs 99.99% uptime and the cost implications. Discuss redundancy requirements and disaster recovery needs.",
+      "expected_outputs": [
+        {
+          "name": "uptime_requirements",
+          "description": "Uptime percentage requirements (e.g., 99.9%, 99.99%)",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "redundancy_requirements",
+          "description": "Redundancy and failover requirements",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "maintenance_windows",
+          "description": "Acceptable maintenance windows and downtime periods",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "stage3",
+      "name": "Performance Metrics",
+      "description": "Define performance metrics and requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define the performance metrics for your infrastructure services. What are your requirements for response times, throughput, and resource allocation?",
+      "system_instructions": "Help the user define specific, measurable performance metrics. Discuss how these metrics will be measured and reported. Consider different performance requirements for different services and workloads.",
+      "expected_outputs": [
+        {
+          "name": "response_time_requirements",
+          "description": "Response time requirements for various services",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "throughput_requirements",
+          "description": "Throughput and bandwidth requirements",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "resource_allocation",
+          "description": "Requirements for CPU, memory, storage allocation and scaling",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "stage4",
+      "name": "Security and Compliance",
+      "description": "Define security and compliance requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "What security and compliance requirements do you have for your infrastructure services? Consider data protection, access controls, encryption, and relevant regulations.",
+      "system_instructions": "Guide the user through comprehensive security requirements. Discuss encryption standards, access controls, network security, and compliance with relevant standards (ISO 27001, SOC 2, etc.).",
+      "expected_outputs": [
+        {
+          "name": "data_protection_requirements",
+          "description": "Requirements for data protection and encryption",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "access_control_requirements",
+          "description": "Requirements for access controls and authentication",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "compliance_standards",
+          "description": "Relevant compliance standards and certifications",
+          "data_type": "list",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "stage5",
+      "name": "Support and Service Management",
+      "description": "Define support and service management requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define the support and service management requirements for your infrastructure services. What are your expectations for incident response, problem resolution, and communication?",
+      "system_instructions": "Help the user define support tiers, response times, escalation procedures, and reporting requirements. Discuss service request processes and change management procedures.",
+      "expected_outputs": [
+        {
+          "name": "support_tiers",
+          "description": "Support tiers and response time requirements",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "incident_management",
+          "description": "Incident management and escalation procedures",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "reporting_requirements",
+          "description": "Requirements for service reporting and reviews",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "stage6",
+      "name": "SLA Review and Recommendations",
+      "description": "Review SLA inputs and provide recommendations",
+      "stage_type": "recommendation",
+      "prompt_template": "I'll now review the information you've provided and suggest recommendations for your Infrastructure Cloud SLA. I'll highlight any areas that might need additional attention or clarification.",
+      "system_instructions": "Analyze the user's inputs and provide thoughtful recommendations. Highlight any gaps or areas that might need more detail. Compare their requirements to industry standards and best practices. Suggest balanced penalties and remediation clauses.",
+      "expected_outputs": [
+        {
+          "name": "sla_recommendations",
+          "description": "Recommendations for improving the SLA",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "industry_benchmarks",
+          "description": "Comparison to industry standards and benchmarks",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "implementation_plan",
+          "description": "Suggested implementation and monitoring plan",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

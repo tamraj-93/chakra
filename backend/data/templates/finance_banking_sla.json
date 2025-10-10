@@ -1,0 +1,209 @@
+{
+  "id": "finance_banking_sla",
+  "name": "Financial Services Banking SLA Template",
+  "description": "Template for creating comprehensive service level agreements for banking and financial transaction services",
+  "domain": "Finance",
+  "version": "1.0",
+  "tags": ["finance", "banking", "transactions", "compliance", "financial services"],
+  "initial_system_prompt": "You are Chakra, an AI assistant specializing in financial services SLAs. Your goal is to help banking and financial institutions create comprehensive service level agreements for transaction processing, banking systems, and financial services. Follow each stage carefully and guide the user through the process, ensuring regulatory compliance and addressing financial-specific requirements.",
+  "is_public": true,
+  "created_at": "2025-10-10T12:00:00Z",
+  "stages": [
+    {
+      "id": "stage1",
+      "name": "Financial Services Scope",
+      "description": "Define the financial services covered by the SLA",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's start by defining the scope of your financial services. What specific banking and financial transaction services will be covered under this SLA? (For example: payment processing, account management, mobile banking, ATM services, etc.)",
+      "system_instructions": "Help the user identify all key financial services that need to be covered. Ask about specific transaction types, customer-facing services, and back-office systems. Ensure critical components like payment processing, account management, and security systems are addressed.",
+      "expected_outputs": [
+        {
+          "name": "financial_services",
+          "description": "List of financial services covered by the SLA",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "transaction_types",
+          "description": "Types of financial transactions being processed",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "customer_channels",
+          "description": "Customer service channels covered (mobile, web, branch, etc.)",
+          "data_type": "list",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "stage2",
+      "name": "Transaction Processing Requirements",
+      "description": "Define requirements for transaction processing",
+      "stage_type": "information_gathering",
+      "prompt_template": "Now, let's define the requirements for transaction processing. What are your expectations for transaction processing times, confirmation times, and success rates?",
+      "system_instructions": "Guide the user through setting realistic transaction processing targets. Discuss different requirements for different transaction types (e.g., real-time payments vs. batch processing). Address transaction volumes, peak times, and scalability needs.",
+      "expected_outputs": [
+        {
+          "name": "processing_time_requirements",
+          "description": "Transaction processing time requirements",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "transaction_success_rates",
+          "description": "Required transaction success rates",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "volume_handling",
+          "description": "Requirements for handling transaction volumes and peaks",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "stage3",
+      "name": "System Availability and Reliability",
+      "description": "Define availability and reliability requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define the availability and reliability requirements for your financial systems. What uptime requirements do you have for critical banking services? Are there different tiers for different services?",
+      "system_instructions": "Help the user define specific, measurable availability metrics. Discuss the criticality of 24/7 services vs. those that can tolerate scheduled maintenance. Address disaster recovery and business continuity requirements.",
+      "expected_outputs": [
+        {
+          "name": "uptime_requirements",
+          "description": "Uptime percentage requirements for different services",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "maintenance_windows",
+          "description": "Acceptable maintenance windows for different services",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "disaster_recovery",
+          "description": "Disaster recovery and business continuity requirements",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "stage4",
+      "name": "Security and Regulatory Compliance",
+      "description": "Define security and regulatory compliance requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "What security and regulatory compliance requirements do you have for your financial services? Consider data protection, fraud prevention, and relevant financial regulations.",
+      "system_instructions": "Guide the user through comprehensive security and compliance requirements. Discuss relevant regulations (e.g., PCI DSS, SOX, GDPR, local banking regulations). Address fraud detection, prevention measures, and security incident responses.",
+      "expected_outputs": [
+        {
+          "name": "security_requirements",
+          "description": "Security requirements and controls",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "regulatory_compliance",
+          "description": "Regulatory compliance requirements",
+          "data_type": "list",
+          "required": true
+        },
+        {
+          "name": "fraud_prevention",
+          "description": "Fraud prevention and detection requirements",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "stage5",
+      "name": "Customer Service and Support",
+      "description": "Define customer service and support requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "Let's define the customer service and support requirements for your financial services. What are your expectations for response times, issue resolution, and customer communication?",
+      "system_instructions": "Help the user define support tiers for different customer segments and issues. Discuss response times for critical issues vs. routine inquiries. Address requirements for customer notifications during incidents or planned maintenance.",
+      "expected_outputs": [
+        {
+          "name": "support_levels",
+          "description": "Support levels and response time requirements",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "issue_resolution",
+          "description": "Issue resolution time requirements",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "customer_communication",
+          "description": "Requirements for customer notifications and communications",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "stage6",
+      "name": "Reporting and Transparency",
+      "description": "Define reporting and transparency requirements",
+      "stage_type": "information_gathering",
+      "prompt_template": "What are your requirements for reporting and transparency regarding service performance, incidents, and compliance?",
+      "system_instructions": "Guide the user through defining comprehensive reporting requirements. Discuss regular performance reports, incident reporting, compliance verification, and audit trails. Address requirements for data retention and evidence collection.",
+      "expected_outputs": [
+        {
+          "name": "performance_reporting",
+          "description": "Performance reporting requirements",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "incident_reporting",
+          "description": "Incident reporting and communication requirements",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "audit_requirements",
+          "description": "Audit and compliance verification requirements",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "stage7",
+      "name": "Financial SLA Review and Recommendations",
+      "description": "Review SLA inputs and provide recommendations",
+      "stage_type": "recommendation",
+      "prompt_template": "I'll now review the information you've provided and suggest recommendations for your Financial Services Banking SLA. I'll highlight any areas that might need additional attention or clarification.",
+      "system_instructions": "Analyze the user's inputs and provide thoughtful recommendations. Highlight any gaps or areas that might need more detail. Compare their requirements to industry standards and regulatory expectations. Suggest balanced penalties and remediation clauses that align with financial industry practices.",
+      "expected_outputs": [
+        {
+          "name": "sla_recommendations",
+          "description": "Recommendations for improving the SLA",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "industry_benchmarks",
+          "description": "Comparison to industry standards and benchmarks",
+          "data_type": "string",
+          "required": true
+        },
+        {
+          "name": "regulatory_considerations",
+          "description": "Additional regulatory considerations and compliance advice",
+          "data_type": "string",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

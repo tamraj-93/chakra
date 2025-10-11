@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # Frontend Angular application
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    container_name: chakra-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - chakra-network
+    restart: unless-stopped
+
+  # Backend FastAPI service
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    container_name: chakra-backend
+    environment:
+      - DATABASE_URL=sqlite:///data/chakra.db
+      - SECRET_KEY=c3907fe25d74b6b7923e24d5090e2d5b73f71d5d3a51ff6197d4077f800f32a3
+      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+      - LLM_PROVIDER=ollama
+      - OLLAMA_API_URL=http://ollama:11434
+      - OLLAMA_MODEL=mistral
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - chakra-data:/app/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ollama
+    networks:
+      - chakra-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  # Ollama service for local LLM support
+  ollama:
+    image: ollama/ollama:latest
+    container_name: chakra-ollama
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - "11434:11434"
+    networks:
+      - chakra-network
+    restart: unless-stopped
+
+      - chakra-network      - backend
+
+    restart: unless-stopped    restart: unless-stopped
+
+    # Pull the default model on startup  
+
+    command: >  # Ollama service for local LLM support
+
+      sh -c "ollama serve &   ollama:
+
+             sleep 10 &&     image: ollama/ollama:latest
+
+             ollama pull mistral &&     container_name: chakra-ollama
+
+             wait"    volumes:
+
+      # Use named volume for Windows compatibility
+
+# Networks      - ollama-data:/root/.ollama
+
+networks:    ports:
+
+  chakra-network:      - "11434:11434"
+
+    driver: bridge    deploy:
+
+      resources:
+
+# Named volumes for data persistence        reservations:
+
+# Using named volumes instead of bind mounts for better Windows compatibility          devices:
+
+volumes:            - driver: nvidia
+
+  chakra-data:              count: all
+
+    driver: local              capabilities: [gpu]
+
+  ollama-data:    restart: unless-stopped
+
+    driver: local
+volumes:
+  chakra-data:
+
+networks:
+  chakra-network:
+    driver: bridge
+
+# Named volumes for data persistence
+volumes:
+  chakra-data:
+    driver: local
+  ollama-data:
+    driver: local

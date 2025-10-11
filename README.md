@@ -99,6 +99,34 @@ python -m uvicorn app.main:app --reload
 
 #### Frontend Setup
 
+### Option 4: Docker Setup
+
+#### Unix/Linux/Mac
+```bash
+docker-compose -f docker-compose.demo.yml up -d
+```
+
+#### Windows
+For Windows users, we provide a specialized setup script to handle common issues:
+
+1. Make sure Docker Desktop is installed and running
+2. Clone the repository with correct line endings:
+   ```bash
+   git config --global core.autocrlf false
+   git clone https://github.com/tamraj-93/chakra.git
+   ```
+3. Run the Windows setup script:
+   ```bash
+   windows-docker-setup.bat
+   ```
+
+This script will automatically:
+- Fix line ending issues in shell scripts
+- Build and start the containers
+- Test the API connection
+
+For troubleshooting Windows-specific issues, see [Windows Troubleshooting Guide](windows-troubleshooting.md).
+
 ```bash
 cd frontend
 npm install --legacy-peer-deps

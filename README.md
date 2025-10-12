@@ -107,23 +107,41 @@ docker-compose -f docker-compose.demo.yml up -d
 ```
 
 #### Windows
-For Windows users, we provide a specialized setup script to handle common issues:
+For Windows users, we provide two options:
 
-1. Make sure Docker Desktop is installed and running
-2. Clone the repository with correct line endings:
+##### Option 1: Full Local Setup (Recommended)
+This option sets up the complete environment with all features including healthcare templates:
+
+1. Clone the repository with correct line endings:
    ```bash
    git config --global core.autocrlf false
    git clone https://github.com/tamraj-93/chakra.git
    ```
-3. Run the Windows setup script:
+2. Run the Windows setup script:
+   ```bash
+   start_chakra_windows.bat
+   ```
+
+This script will automatically:
+- Install all dependencies
+- Initialize the database
+- Set up healthcare templates and RAG system
+- Start both frontend and backend servers
+- Ensure all features work properly
+
+For detailed Windows setup instructions, see [Windows Setup Guide](WINDOWS_SETUP_GUIDE.md).
+
+##### Option 2: Docker Setup (Simpler but Limited)
+For a simpler but more limited setup using Docker:
+
+1. Make sure Docker Desktop is installed and running
+2. Clone the repository with correct line endings
+3. Run:
    ```bash
    windows-docker-setup.bat
    ```
 
-This script will automatically:
-- Fix line ending issues in shell scripts
-- Build and start the containers
-- Test the API connection
+This will build and start the containers in demo mode.
 
 For troubleshooting Windows-specific issues, see [Windows Troubleshooting Guide](windows-troubleshooting.md).
 
